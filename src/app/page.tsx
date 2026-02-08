@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Package, Globe, X, RotateCcw } from 'lucide-react';
 import GameBoard from '@/components/GameBoard';
 import Market from '@/components/Market';
@@ -77,80 +77,92 @@ export default function Home() {
   };
 
   const location = getLocationById(gameState.currentLocation)!;
-  const totalItems = Object.values(gameState.inventory).reduce((sum, count) => sum + count, 0);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 via-blue-950 to-slate-950 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-4">
-        {/* Header */}
-        <motion.div
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h1 className="text-4xl md:text-3xl font-bold text-white flex items-center gap-2">
+          <Globe className="text-blue-400" />
+          <span className="tracking-wide">Travel Trader</span>
+        </h1>
+
+      {/* Buttons */}
+      <div className="flex justify-center items-center gap-4 mb-8">
+        <motion.button
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="flex justify-between items-center"
-        >
-          <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-2">
-            <Globe className="text-blue-400" />
-            Travel Trader
-          </h1>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleReset}
-            className="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-lg transition-colors"
-            title="New Game"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleReset}
+          className="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-lg transition-colors"
+          title="New Game"
           >
             <RotateCcw size={20} />
           </motion.button>
-        </motion.div>
 
-        {/* Game Board */}
-        <GameBoard
-          money={gameState.money}
-          location={{ name: location.name, emoji: location.emoji }}
-          turns={gameState.turns}
-        />
+        {/* Link to Guide */}
+        <motion.button
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => window.location.href = '/how-to-play'}
+          className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors"
+          >
+            <Package size={20} className="mr-2" />
+            <span className="font-semibold">How to Play</span>
+          </motion.button>
+      </div>
 
-        {/* Events */}
-        <Events events={gameState.events} />
+      {/* Game Board */}
+      <GameBoard
+        money={gameState.money}
+        location={{ name: location.name, emoji: location.emoji }}
+        turns={gameState.turns}
+      />
 
-        {/* Notification */}
-        <AnimatePresence>
-          {notification && (
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 20, opacity: 0 }}
-              className={`fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 rounded-xl p-4 border ${
+      {/* Events */}
+      <Events events={gameState.events} />
+
+      {/* Notification */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 20, opacity: 0 }}
+            className={`fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 rounded-xl p-4 border ${
                 notification.type === 'error'
                   ? 'bg-red-900/90 border-red-500'
                   : 'bg-green-900/90 border-green-500'
               }`}
-            >
-              <div className="flex items-start gap-2">
-                {notification.type === 'error' ? (
+          >
+            <div className="flex items-start gap-2">
+              {notification.type === 'error' ? (
                   <X className="text-red-400 mt-0.5" size={16} />
                 ) : (
                   <Package className="text-green-400 mt-0.5" size={16} />
                 )}
-                <p className="text-sm text-white">{notification.message}</p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <p className="text-sm text-white mt-0.5">{notification.message}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        {/* Tab Navigation */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="flex gap-2 overflow-x-auto pb-2"
-        >
-          {[
-            { id: 'market' as Tab, label: 'Market', icon: '🛒' },
-            { id: 'travel' as Tab, label: 'Travel', icon: '✈️' },
-            { id: 'inventory' as Tab, label: `Inventory (${totalItems})`, icon: '📦' },
-            { id: 'history' as Tab, label: 'History', icon: '📜' },
-          ].map((tab) => (
+      {/* Tab Navigation */}
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.1 }}
+        className="flex gap-2 overflow-x-auto pb-2"
+      >
+        {[
+          { id: 'market' as Tab, label: 'Market', icon: '🛒' },
+          { id: 'travel' as Tab, label: 'Travel', icon: '✈️' },
+          { id: 'inventory' as Tab, label: `Inventory (${totalItems})`, icon: '📦' },
+          { id: 'history' as Tab, label: 'History', icon: '📜' },
+        ].map((tab) => (
             <motion.button
               key={tab.id}
               whileHover={{ scale: 1.05 }}
@@ -168,14 +180,14 @@ export default function Home() {
           ))}
         </motion.div>
 
-        {/* Tab Content */}
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-          className="bg-slate-900/50 rounded-2xl p-4 md:p-6 border border-slate-800"
-        >
+      {/* Tab Content */}
+      <motion.div
+        key={activeTab}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
+        className="bg-slate-900/50 rounded-2xl p-4 md:p-6 border border-slate-800"
+      >
           {activeTab === 'market' && (
             <Market
               location={location}
@@ -199,7 +211,7 @@ export default function Home() {
           {activeTab === 'inventory' && (
             <div className="space-y-3">
               <h2 className="text-lg font-bold text-blue-300 flex items-center gap-2">
-                <Package size={20} />
+                <Package size={20} className="mr-2" />
                 Your Inventory
               </h2>
               {Object.entries(gameState.inventory).length === 0 ? (
@@ -221,17 +233,16 @@ export default function Home() {
                         <div className="flex items-center gap-3">
                           <span className="text-2xl">
                             {(() => {
-                              const goods = ['🌾', '🍚', '🌶️', '🧵', '🪙', '🍵', '☁️', '☕', '💎', '🦴'];
+                              const goods = ['🌾', '🍚', '🌶️', '🧵', '🪙', '🍵', '☁️', '🛁️', '🪨', '☕', '💎', '🦴', '🌿'];
                               const idx = ['wheat', 'rice', 'spices', 'silk', 'gold', 'tea', 'cotton', 'coffee', 'diamonds', 'ivory'].indexOf(goodId);
                               return idx >= 0 ? goods[idx] : '📦';
                             })()}
                           </span>
                           <div className="capitalize text-white text-sm md:text-base">{goodId}</div>
-                        </div>
-                        <div className="bg-blue-600/30 px-3 py-1 rounded-full">
-                          <span className="text-blue-300 font-bold">{count}</span>
-                        </div>
-                      </motion.div>
+                          <div className="bg-blue-600/30 px-3 py-1 rounded-full">
+                            <span className="text-blue-300 font-bold">{count}</span>
+                          </div>
+                        </motion.div>
                     ))}
                 </div>
               )}
@@ -241,10 +252,9 @@ export default function Home() {
           {activeTab === 'history' && <History history={gameState.history} />}
         </motion.div>
 
-        {/* Footer */}
-        <div className="text-center text-slate-500 text-xs py-4">
-          <p>💡 Tip: Discuss strategies together! Buy low, sell high, and watch for market events!</p>
-        </div>
+      {/* Footer */}
+      <div className="text-center text-slate-500 text-xs py-4">
+        <p>💡 Tip: Discuss strategies together! Buy low, sell high, and watch for market events!</p>
       </div>
     </main>
   );
