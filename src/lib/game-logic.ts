@@ -82,7 +82,10 @@ export function calculatePrice(
   }
 
   // Add some randomness
-  const randomFactor = 1 + (Math.random() - 0.5) * good.volatility * 0.3;
+  // REMOVED: Random factor was causing price mismatch
+  // The price shown in UI and the actual transaction cost were different
+  // Now showing base price consistently
+  const randomFactor = 1;
 
   return Math.round(
     good.basePrice *
