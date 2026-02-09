@@ -43,6 +43,10 @@ export interface MarketEvent {
   priceMultiplier: number;
   duration: number; // turns
   remainingTurns: number;
+  isSeasonal?: boolean; // Only active in specific season
+  season?: Season; // Season for seasonal events
+  isDaily?: boolean; // Short-term events (1-3 turns)
+  isRare?: boolean; // Rare events (1% chance)
 }
 
 export interface GameState {
@@ -56,6 +60,7 @@ export interface GameState {
   season: Season;
   inventorySlots: number; // Current carrying capacity
   maxInventorySlots: number; // Maximum carrying capacity
+  importantItems?: string[]; // Items marked as important
   history: GameHistoryEntry[];
 }
 
@@ -386,7 +391,151 @@ export const MARKET_EVENTS: Omit<MarketEvent, 'remainingTurns'>[] = [
     priceMultiplier: 1.4,
     duration: 3,
   },
+  // SEASONAL EVENTS
+  {
+    id: 'spring_festival',
+    description: '🌸 Spring Festival! Flowers are blooming everywhere!',
+    affectedGood: 'food',
+    priceMultiplier: 0.6,
+    duration: 4,
+    isSeasonal: true,
+    season: Season.SPRING,
+  },
+  {
+    id: 'summer_carnival',
+    description: '🎉 Summer Carnival! Goods are plentiful!',
+    affectedGood: 'all',
+    priceMultiplier: 0.8,
+    duration: 3,
+    isSeasonal: true,
+    season: Season.SUMMER,
+  },
+  {
+    id: 'autumn_harvest',
+    description: '🍂 Autumn Harvest! Food prices are down!',
+    affectedGood: 'food',
+    priceMultiplier: 0.5,
+    duration: 5,
+    isSeasonal: true,
+    season: Season.AUTUMN,
+  },
+  {
+    id: 'winter_solstice',
+    description: '❄️ Winter Solstice! Luxury goods are expensive!',
+    affectedGood: 'luxury',
+    priceMultiplier: 1.5,
+    duration: 4,
+    isSeasonal: true,
+    season: Season.WINTER,
+  },
+  // DAILY/SHORT-TERM EVENTS
+  {
+    id: 'market_holiday',
+    description: '🏛️ Market Holiday! No fees, +10% profits!',
+    affectedGood: 'all',
+    priceMultiplier: 1.1,
+    duration: 1,
+    isDaily: true,
+  },
+  {
+    id: 'trade_fair',
+    description: '🎪 Trade Fair! Visibility is increased!',
+    affectedGood: 'all',
+    priceMultiplier: 1.0,
+    duration: 2,
+    isDaily: true,
+  },
+  {
+    id: 'royal_wedding',
+    description: '💒 Royal Wedding! Luxury goods prices up!',
+    affectedGood: 'luxury',
+    priceMultiplier: 1.5,
+    duration: 3,
+    isDaily: true,
+  },
+  {
+    id: 'pandemic',
+    description: '⚠️ Pandemic Alert! All prices up, travel expensive!',
+    affectedGood: 'all',
+    priceMultiplier: 1.3,
+    travelCostModifier: 1.5,
+    duration: 5,
+    isDaily: true,
+  },
+  {
+    id: 'commodity_bubble',
+    description: '📈 Commodity Bubble! One good price is high!',
+    affectedGood: 'random',
+    priceMultiplier: 10,
+    duration: 3,
+    isDaily: true,
+    isRare: true,
+  },
+  {
+    id: 'market_crash',
+    description: '📉 Market Crash! All prices down!',
+    affectedGood: 'all',
+    priceMultiplier: 0.4,
+    duration: 2,
+    isDaily: true,
+    isRare: true,
+  },
+  {
+    id: 'gold_rush',
+    description: '🪙 Gold Rush! Gold prices up!',
+    affectedGood: 'gold',
+    priceMultiplier: 1.8,
+    duration: 3,
+    isDaily: true,
+  },
+  // RARE EVENTS (1% chance)
+  {
+    id: 'black_swan',
+    description: '⚡ Black Swan Event! Massive volatility!',
+    affectedGood: 'all',
+    priceMultiplier: 1,
+    duration: 5,
+    isDaily: true,
+    isRare: true,
+  },
 ];
+
+// EVENT CHAINS - Sequences of events
+export const EVENT_CHAINS = {
+  gold_rush_to_royal_guard: {
+    id: 'gold_rush_to_royal_guard',
+    description: 'Gold Rush → Royal Guard → Fortunes Unlocked',
+    events: [
+      { eventId: 'gold_rush', weight: 0.4 },
+      { eventId: 'royal_guard', weight: 0.3 },
+      { eventId: 'fortunes_unlocked', weight: 0.3 },
+    ],
+    triggerChance: 0.02, // 2% chance
+    duration: 6,
+  },
+  harvest_to_bounty: {
+    id: 'harvest_to_bounty',
+    description: 'Harvest → Bounty of Grains → Grain Market Boom',
+    events: [
+      { eventId: 'harvest', weight: 0.5 },
+      { eventId: 'bounty_of_grains', weight: 0.3 },
+      { eventId: 'grain_market_boom', weight: 0.2 },
+    ],
+    triggerChance: 0.03,
+    duration: 5,
+  },
+  epidemic_to_lockdown: {
+    id: 'epidemic_to_lockdown',
+    description: 'Epidemic → Quarantine → Supply Chain Crisis',
+    events: [
+      { eventId: 'pandemic', weight: 0.6 },
+      { eventId: 'quarantine', weight: 0.3 },
+      { eventId: 'supply_chain_crisis', weight: 0.1 },
+    ],
+    triggerChance: 0.015,
+    duration: 8,
+  },
+};
 
 export const INITIAL_MONEY = 200;
 export const INITIAL_INVENTORY_SLOTS = 20;

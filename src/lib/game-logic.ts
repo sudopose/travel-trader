@@ -9,6 +9,7 @@ import {
   LOCATIONS,
   MARKET_EVENTS,
   WEATHER_TYPES,
+  EVENT_CHAINS,
   INITIAL_MONEY,
   INITIAL_INVENTORY_SLOTS,
   MAX_INVENTORY_SLOTS,
@@ -26,6 +27,7 @@ export function getInitialGameState(): GameState {
     season: Season.SPRING,
     inventorySlots: INITIAL_INVENTORY_SLOTS,
     maxInventorySlots: MAX_INVENTORY_SLOTS,
+    importantItems: [],
     history: [
       {
         type: 'event',
@@ -318,19 +320,44 @@ export function travelTo(state: GameState, locationId: string): GameState | { er
     .map((e) => ({ ...e, remainingTurns: e.remainingTurns - 1 }))
     .filter((e) => e.remainingTurns > 0);
 
-  // Maybe trigger a new market event (25% chance)
-  if (Math.random() < 0.25 && newState.turns > 0) {
-    const newEventTemplate = MARKET_EVENTS[Math.floor(Math.random() * MARKET_EVENTS.length)];
-    const newEvent: MarketEvent = {
-      ...newEventTemplate,
-      remainingTurns: newEventTemplate.duration,
-    };
-    newState.events.push(newEvent);
-    newState.history.push({
-      type: 'event',
-      message: `📢 ${newEvent.description}`,
-      turn: newState.turns,
-    });
+  // Maybe trigger a new market event (30% chance, reduced for advanced events)
+  if (Math.random() < 0.30 && newState.turns > 0) {
+    const newEventTemplate = getRandomDailyEvent(newState.season);
+    if (newEventTemplate) {
+      const newEvent: MarketEvent = {
+        ...newEventTemplate,
+        remainingTurns: newEventTemplate.duration,
+      };
+      newState.events.push(newEvent);
+      newState.history.push({
+        type: 'event',
+        message: `📢 ${newEvent.description}`,
+        turn: newState.turns,
+      });
+    }
+  }
+
+  // Maybe trigger a rare event (1% chance)
+  if (Math.random() < 0.01 && newState.turns > 0) {
+    const rareEvent = getRandomRareEvent(newState.season);
+    if (rareEvent) {
+      const newEvent: MarketEvent = {
+        ...rareEvent,
+        remainingTurns: rareEvent.duration,
+      };
+      newState.events.push(newEvent);
+      newState.history.push({
+        type: 'event',
+        message: `⚡ ${newEvent.description}`,
+        turn: newState.turns,
+      });
+    }
+  }
+
+  // Maybe trigger an event chain (2% chance)
+  const chainResult = triggerEventChain(newState);
+  if (chainResult) {
+    newState = chainResult;
   }
 
   newState.history.push({
@@ -375,6 +402,203 @@ export function unlockLocation(
   });
 
   return newState;
+}
+
+// Advanced Events System
+export function getActiveEvents(
+  events: MarketEvent[],
+  season: Season
+): MarketEvent[] {
+  return events.filter((event) => {
+    // Filter seasonal events
+    if (event.isSeasonal && event.season !== season) {
+      return false;
+    }
+    // Keep only active events
+    return event.remainingTurns > 0;
+  });
+}
+
+export function triggerEventChain(state: GameState): GameState | null {
+  const chains = Object.values(EVENT_CHAINS);
+
+  for (const chain of chains) {
+    if (Math.random() < chain.triggerChance && state.turns > 0) {
+      // Trigger the event chain
+      let result = { ...state };
+
+      for (const chainEvent of chain.events) {
+        const eventTemplate = MARKET_EVENTS.find(
+          (e) => e.id === chainEvent.eventId
+        );
+        if (eventTemplate) {
+          const newEvent: MarketEvent = {
+            ...eventTemplate,
+            remainingTurns: chainEvent.weight * chain.duration,
+          };
+          result.events.push(newEvent);
+          result.history.push({
+            type: 'event',
+            message: `📢 ${newEvent.description}`,
+            turn: result.turns,
+          });
+        }
+      }
+
+      return result;
+    }
+  }
+
+  return null;
+}
+
+export function getRandomDailyEvent(season: Season): MarketEvent | undefined {
+  const dailyEvents = MARKET_EVENTS.filter((e) => e.isDaily);
+  const activeSeasonalEvents = dailyEvents.filter((e) => e.isSeasonal && e.season === season);
+
+  const pool = [...activeSeasonalEvents, ...dailyEvents];
+  if (pool.length === 0) return undefined;
+
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+export function getRandomRareEvent(season: Season): MarketEvent | undefined {
+  const rareEvents = MARKET_EVENTS.filter((e) => e.isRare);
+  const activeSeasonalRareEvents = rareEvents.filter((e) => e.isSeasonal && e.season === season);
+
+  const pool = [...activeSeasonalRareEvents, ...rareEvents];
+  if (pool.length === 0) return undefined;
+
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+export function getEventEffectMultiplier(
+  event: MarketEvent,
+  affectedGood?: string
+): number {
+  if (event.affectedGood === 'all') {
+    return event.priceMultiplier;
+  }
+
+  if (event.affectedGood === 'random') {
+    // Randomly select a good
+    const goodKeys = GOODS.map((g) => g.id);
+    const randomGood = goodKeys[Math.floor(Math.random() * goodKeys.length)];
+    if (randomGood === affectedGood) {
+      return event.priceMultiplier;
+    }
+    return 1;
+  }
+
+  if (event.affectedGood === affectedGood) {
+    return event.priceMultiplier;
+  }
+
+  return 1;
+}
+
+export function filterEventsByCategory(
+  events: MarketEvent[],
+  category: string
+): MarketEvent[] {
+  return events.filter((e) => {
+    const good = GOODS.find((g) => g.id === e.affectedGood);
+    return good && good.category === category;
+  });
+}
+
+// Volatility Meter
+export function calculateMarketVolatility(events: MarketEvent[]): number {
+  const totalVolatility = events.reduce((sum, event) => {
+    if (event.affectedGood === 'all' || event.affectedGood === 'random') {
+      return sum + Math.abs(event.priceMultiplier - 1);
+    }
+    return sum;
+  }, 0);
+
+  // Normalize to 0-100 scale
+  return Math.min(100, Math.round((totalVolatility / 5) * 100));
+}
+
+// Inventory Organization
+export function sortInventory(
+  state: GameState,
+  sortBy: 'value' | 'name' | 'category' = 'category'
+): GameState {
+  const newState = { ...state };
+  const sortedEntries = Object.entries(newState.inventory).sort((a, b) => {
+    const goodA = GOODS.find((g) => g.id === a[0]);
+    const goodB = GOODS.find((g) => g.id === b[0]);
+
+    if (!goodA || !goodB) return 0;
+
+    switch (sortBy) {
+      case 'value':
+        const priceA = calculatePrice(goodA, getLocationById(state.currentLocation), state.events, state.season, state.weather);
+        const priceB = calculatePrice(goodB, getLocationById(state.currentLocation), state.events, state.season, state.weather);
+        return priceB - priceA;
+      case 'name':
+        return goodA.name.localeCompare(goodB.name);
+      case 'category':
+      default:
+        return goodA.category.localeCompare(goodB.category);
+    }
+  });
+
+  const newInventory: Record<string, number> = {};
+  sortedEntries.forEach(([key, value]) => {
+    newInventory[key] = value;
+  });
+
+  newState.inventory = newInventory;
+  return newState;
+}
+
+export function bundleInventoryForTravel(
+  state: GameState
+): Record<string, number> {
+  // Group items for efficient travel (prioritize valuable goods)
+  const bundle: Record<string, number> = {};
+
+  Object.entries(state.inventory).forEach(([goodId, count]) => {
+    if (count > 0) {
+      const good = GOODS.find((g) => g.id === goodId);
+      if (good) {
+        // Prioritize: Luxury > Special > Rare > Materials > Spices > Food
+        const priority = {
+          luxury: 1,
+          special: 2,
+          rare: 3,
+          materials: 4,
+          spices: 5,
+          food: 6,
+        };
+        const currentPriority = priority[good.category] || 99;
+
+        // Only add if better priority or already in bundle
+        if (!bundle[goodId] || priority[GOODS.find((g) => g.id === goodId)?.category || 'food'] <= currentPriority) {
+          bundle[goodId] = (bundle[goodId] || 0) + count;
+        }
+      }
+    }
+  });
+
+  return bundle;
+}
+
+export function markImportantItems(
+  state: GameState,
+  importantItems: string[]
+): GameState {
+  const newState = { ...state };
+  newState.importantItems = importantItems;
+  return newState;
+}
+
+export function filterImportantItems(
+  state: GameState
+): string[] {
+  return state.importantItems || [];
 }
 
 export function getGoodById(id: string): Good | undefined {
