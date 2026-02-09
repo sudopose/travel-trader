@@ -63,6 +63,17 @@ export interface GameState {
   inventorySlots: number; // Current carrying capacity
   maxInventorySlots: number; // Maximum carrying capacity
   importantItems?: string[]; // Items marked as important
+
+  // Progression System
+  level?: number;
+  xp?: number;
+  xpToNextLevel?: number;
+  perksUnlocked?: string[];
+  achievementsUnlocked?: string[];
+  totalTrades?: number;
+  goldEarned?: number;
+  currentStreak?: number;
+  bestStreak?: number;
   history: GameHistoryEntry[];
 }
 

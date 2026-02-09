@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Package, Globe, RotateCcw, Wallet, Users, Target, Menu, Settings, Star } from 'lucide-react';
 import { triggerClickHaptic, triggerSuccessHaptic, triggerErrorHaptic, triggerPurchaseHaptic, triggerTravelHaptic } from '@/lib/haptics';
@@ -24,7 +24,9 @@ import SplitScreenLayout from '@/components/SplitScreenLayout';
 import TeamGoalsPanel from '@/components/TeamGoalsPanel';
 import SettingsPanel from '@/components/SettingsPanel';
 import { Sparkles, FloatingText } from '@/components/ui/ParticleEffects';
-import { GameMode, createGameModeState, checkWinCondition, checkLoseCondition, calculateScore, GAME_MODES } from '@/lib/game-modes';
+import StartScreen from '@/components/StartScreen';
+import GameOverOverlay from '@/components/GameOverOverlay';
+import { GameMode, createGameModeState, checkWinCondition, checkLoseCondition, calculateScore, getModeEmoji, getModeDisplayName, GAME_MODES } from '@/lib/game-modes';
 import {
   MultiplayerState,
   createMultiplayerState,
@@ -50,6 +52,11 @@ export default function Home() {
   const [celebration, setCelebration] = useState<string | null>(null);
   const [player1View, setPlayer1View] = useState<Tab>('market');
   const [player2View, setPlayer2View] = useState<Tab>('travel');
+
+  // Game Modes state
+  const [showStartScreen, setShowStartScreen] = useState(false);
+  const [gameMode, setGameMode] = useState<GameMode | null>(null);
+  const [gameModeState, setGameModeState] = useState(createGameModeState('sandbox'));
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -113,9 +120,62 @@ export default function Home() {
 
   const handleReset = () => {
     if (confirm('Start a new game? All progress will be lost.')) {
-      setGameState(getInitialGameState());
-      showNotification('success', 'New game started!');
+      if (gameMode) {
+        // Restart with current game mode
+        handleRestartGame();
+      } else {
+        // New game with default
+        setGameState(getInitialGameState());
+        showNotification('success', 'New game started!');
+      }
     }
+  };
+
+  // Game Mode handlers
+  const handleSelectGameMode = (mode: GameMode) => {
+    setGameMode(mode);
+    const modeState = createGameModeState(mode);
+    setGameModeState(modeState);
+    setShowStartScreen(false);
+
+    // Initialize game state with mode-specific settings
+    let initialGameState = getInitialGameState();
+    initialGameState.money = modeState.config.startingMoney;
+    initialGameState.inventory = modeState.config.startingInventory;
+    initialGameState.unlockedLocations = modeState.config.unlockedLocations;
+
+    setGameState(initialGameState);
+    playSound('click');
+    triggerClickHaptic();
+    showNotification('success', `Started ${modeState.config.name}!`);
+  };
+
+  const handleRestartGame = () => {
+    if (!gameMode) return;
+
+    const modeState = createGameModeState(gameMode);
+    setGameModeState(modeState);
+
+    // Reinitialize game state with mode-specific settings
+    let initialGameState = getInitialGameState();
+    initialGameState.money = modeState.config.startingMoney;
+    initialGameState.inventory = modeState.config.startingInventory;
+    initialGameState.unlockedLocations = modeState.config.unlockedLocations;
+
+    setGameState(initialGameState);
+    setActiveTab('market');
+    playSound('click');
+    triggerClickHaptic();
+    showNotification('success', 'Game restarted!');
+  };
+
+  const handleHomeMenu = () => {
+    setShowStartScreen(true);
+    setGameMode(null);
+    setGameModeState(createGameModeState('sandbox'));
+    setGameState(getInitialGameState());
+    playSound('click');
+    triggerClickHaptic();
   };
 
   // Multiplayer handlers
@@ -165,6 +225,37 @@ export default function Home() {
   const usedSlots = Object.values(gameState.inventory).reduce((sum, count) => sum + count, 0);
   const seasonDisplay = SEASON_DISPLAY[gameState.season];
   const currentLocation = getLocationById(gameState.currentLocation);
+
+  // Check win/lose conditions for game modes
+  useEffect(() => {
+    if (showStartScreen || !gameMode) return;
+
+    const isWin = checkWinCondition(gameModeState, gameState.money, gameState.turns);
+    const isLose = checkLoseCondition(gameModeState, gameState.money, gameState.turns);
+
+    if (isWin || isLose) {
+      const score = calculateScore(gameModeState, gameState.money, gameState.turns);
+      const turnsRemaining = gameModeState.config.maxTurns ? gameModeState.config.maxTurns - gameState.turns : undefined;
+
+      setGameModeState({
+        ...gameModeState,
+        isGameOver: true,
+        gameResult: isWin ? 'win' : 'lose',
+        score,
+        turnsRemaining,
+      });
+
+      if (isWin) {
+        playSound('goalComplete');
+        triggerSuccessHaptic();
+        setCelebration('🎉');
+        setTimeout(() => setCelebration(null), 2000);
+      } else {
+        playSound('error');
+        triggerErrorHaptic();
+      }
+    }
+  }, [gameState.turns, gameState.money, showStartScreen, gameMode, gameModeState]);
 
   // Update team goals whenever game state changes
   const updatedMultiplayerState = updateTeamGoals(multiplayerState, gameState);
@@ -237,7 +328,7 @@ export default function Home() {
           whileTap={{ scale: 0.95 }}
           onClick={handleReset}
           className="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-lg transition-colors"
-          title="New Game"
+          title={gameMode ? 'Restart Mode' : 'New Game'}
         >
           <RotateCcw className="w-5 h-5" />
         </motion.button>
@@ -487,8 +578,20 @@ export default function Home() {
       <div className="text-center text-slate-500 text-xs py-4">
         {multiplayerState.mode === 'single' ? (
           <>
-            <p>Turn: {gameState.turns} | Inventory: {usedSlots}/{gameState.inventorySlots} slots</p>
-            <p className="mt-1">💡 Phase 3 Complete - Multiplayer Features Ready!</p>
+            {gameMode && gameMode !== 'sandbox' ? (
+              <>
+                <p>
+                  {getModeEmoji(gameMode)} {getModeDisplayName(gameMode)} | Turn: {gameState.turns}
+                  {gameModeState.config.maxTurns && ` / ${gameModeState.config.maxTurns}`} | Inventory: {usedSlots}/{gameState.inventorySlots} slots
+                </p>
+                <p className="mt-1">💡 Phase 5 Complete - Game Modes Ready!</p>
+              </>
+            ) : (
+              <>
+                <p>Turn: {gameState.turns} | Inventory: {usedSlots}/{gameState.inventorySlots} slots</p>
+                <p className="mt-1">💡 Phase 5 Complete - Game Modes Ready!</p>
+              </>
+            )}
           </>
         ) : (
           <>
@@ -558,6 +661,20 @@ export default function Home() {
         text={celebration || ''}
         show={celebration !== null}
         color="#FFD700"
+      />
+
+      {/* Start Screen */}
+      <StartScreen
+        show={showStartScreen}
+        onSelectMode={handleSelectGameMode}
+      />
+
+      {/* Game Over Overlay */}
+      <GameOverOverlay
+        gameModeState={gameModeState}
+        score={gameModeState.score}
+        onRestart={handleRestartGame}
+        onHome={handleHomeMenu}
       />
     </main>
   );
