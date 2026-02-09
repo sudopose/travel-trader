@@ -26,6 +26,9 @@ const STATS_KEY = 'travel-trader-stats';
 
 const MAX_ENTRIES = 50;
 
+// Check if we're in browser environment
+const isBrowser = typeof window !== 'undefined';
+
 export function saveLeaderboardEntry(entry: LeaderboardEntry): boolean {
   try {
     const leaderboard = getLeaderboard();
@@ -48,6 +51,8 @@ export function saveLeaderboardEntry(entry: LeaderboardEntry): boolean {
 }
 
 export function getLeaderboard(): LeaderboardEntry[] {
+  if (!isBrowser) return [];
+
   try {
     const data = localStorage.getItem(LEADERBOARD_KEY);
 
@@ -85,6 +90,8 @@ export function getPlayerRank(playerName: string, gameMode?: string): number {
 }
 
 export function updateStats(entry: LeaderboardEntry): boolean {
+  if (!isBrowser) return false;
+
   try {
     const stats = getStats();
 
@@ -105,6 +112,17 @@ export function updateStats(entry: LeaderboardEntry): boolean {
 }
 
 export function getStats(): LeaderboardStats {
+  if (!isBrowser) {
+    return {
+      totalGames: 0,
+      totalGoldEarned: 0,
+      totalAchievements: 0,
+      highestLevel: 1,
+      bestScore: 0,
+      averageScore: 0,
+    };
+  }
+
   try {
     const data = localStorage.getItem(STATS_KEY);
 
@@ -134,6 +152,8 @@ export function getStats(): LeaderboardStats {
 }
 
 export function clearLeaderboard(): boolean {
+  if (!isBrowser) return false;
+
   try {
     localStorage.removeItem(LEADERBOARD_KEY);
     return true;
@@ -172,6 +192,8 @@ export function getModeDisplayName(mode: string): string {
 }
 
 export function clearStats(): boolean {
+  if (!isBrowser) return false;
+
   try {
     localStorage.removeItem(STATS_KEY);
     return true;

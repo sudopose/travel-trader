@@ -14,11 +14,16 @@ const MAX_SLOTS = 5;
 
 export const CURRENT_VERSION = '2.0.0';
 
+// Check if we're in browser environment
+const isBrowser = typeof window !== 'undefined';
+
 export function saveGame(
   gameState: GameState,
   progression: any,
   slot: number = 0
 ): boolean {
+  if (!isBrowser) return false;
+
   try {
     const saveData: SaveData = {
       gameState,
@@ -41,6 +46,8 @@ export function saveGame(
 }
 
 export function loadGame(slot: number = 0): SaveData | null {
+  if (!isBrowser) return null;
+
   try {
     const slots = getSaveSlots();
 
@@ -56,6 +63,8 @@ export function loadGame(slot: number = 0): SaveData | null {
 }
 
 export function loadAutoSave(): SaveData | null {
+  if (!isBrowser) return null;
+
   try {
     const data = localStorage.getItem(SAVE_KEY);
 
@@ -71,6 +80,8 @@ export function loadAutoSave(): SaveData | null {
 }
 
 export function getSaveSlots(): (SaveData | null)[] {
+  if (!isBrowser) return Array(MAX_SLOTS).fill(null);
+
   try {
     const data = localStorage.getItem(SLOTS_KEY);
 
@@ -87,6 +98,8 @@ export function getSaveSlots(): (SaveData | null)[] {
 }
 
 export function deleteSave(slot: number): boolean {
+  if (!isBrowser) return false;
+
   try {
     const slots = getSaveSlots();
     slots[slot] = null;
@@ -105,6 +118,8 @@ export function deleteSave(slot: number): boolean {
 }
 
 export function exportSave(): string | null {
+  if (!isBrowser) return null;
+
   try {
     const data = localStorage.getItem(SAVE_KEY);
 
@@ -120,6 +135,8 @@ export function exportSave(): string | null {
 }
 
 export function importSave(base64Data: string): boolean {
+  if (!isBrowser) return false;
+
   try {
     const data = JSON.parse(atob(base64Data));
 
@@ -137,10 +154,13 @@ export function importSave(base64Data: string): boolean {
 }
 
 export function hasAutoSave(): boolean {
+  if (!isBrowser) return false;
   return localStorage.getItem(SAVE_KEY) !== null;
 }
 
 export function getSaveTimestamp(slot: number): number | null {
+  if (!isBrowser) return null;
+
   const slots = getSaveSlots();
   return slots[slot]?.timestamp || null;
 }
@@ -163,6 +183,8 @@ export function formatTimestamp(timestamp: number): string {
 }
 
 export function clearAllSaves(): boolean {
+  if (!isBrowser) return false;
+
   try {
     localStorage.removeItem(SAVE_KEY);
     localStorage.removeItem(SLOTS_KEY);
