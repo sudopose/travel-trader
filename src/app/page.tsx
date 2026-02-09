@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, Globe, RotateCcw, Wallet, Users, Target, Menu } from 'lucide-react';
+import { Package, Globe, RotateCcw, Wallet, Users, Target, Menu, Settings, Star } from 'lucide-react';
+import { triggerClickHaptic, triggerSuccessHaptic, triggerErrorHaptic, triggerPurchaseHaptic, triggerTravelHaptic } from '@/lib/haptics';
+import { playSound } from '@/lib/sounds';
 import {
   getInitialGameState,
   processEvents,
@@ -20,6 +22,8 @@ import History from '@/components/History';
 import MultiplayerPanel from '@/components/MultiplayerPanel';
 import SplitScreenLayout from '@/components/SplitScreenLayout';
 import TeamGoalsPanel from '@/components/TeamGoalsPanel';
+import SettingsPanel from '@/components/SettingsPanel';
+import { Sparkles, FloatingText } from '@/components/ui/ParticleEffects';
 import {
   MultiplayerState,
   createMultiplayerState,
@@ -41,11 +45,18 @@ export default function Home() {
   const [multiplayerState, setMultiplayerState] = useState<MultiplayerState>(createMultiplayerState());
   const [showMultiplayerPanel, setShowMultiplayerPanel] = useState(false);
   const [showTeamGoals, setShowTeamGoals] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [celebration, setCelebration] = useState<string | null>(null);
   const [player1View, setPlayer1View] = useState<Tab>('market');
   const [player2View, setPlayer2View] = useState<Tab>('travel');
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
+
+    // Play sound and haptics
+    playSound(type === 'success' ? 'notification' : 'error');
+    type === 'success' ? triggerSuccessHaptic() : triggerErrorHaptic();
+
     setTimeout(() => setNotification(null), 3000);
   };
 
@@ -55,6 +66,8 @@ export default function Home() {
       showNotification('error', typeof result === 'string' ? result : result.error);
     } else {
       setGameState(result);
+      playSound('buy');
+      triggerPurchaseHaptic();
       showNotification('success', 'Purchased!');
     }
   };
@@ -65,6 +78,8 @@ export default function Home() {
       showNotification('error', typeof result === 'string' ? result : result.error);
     } else {
       setGameState(result);
+      playSound('sell');
+      triggerSuccessHaptic();
       showNotification('success', 'Sold!');
     }
   };
@@ -75,6 +90,8 @@ export default function Home() {
       showNotification('error', typeof result === 'string' ? result : result.error);
     } else {
       setGameState(result);
+      playSound('travel');
+      triggerTravelHaptic();
       showNotification('success', 'Traveled!');
     }
   };
@@ -85,6 +102,10 @@ export default function Home() {
       showNotification('error', typeof result === 'string' ? result : result.error);
     } else {
       setGameState(result);
+      playSound('unlock');
+      triggerSuccessHaptic();
+      setCelebration('🎉');
+      setTimeout(() => setCelebration(null), 2000);
       showNotification('success', 'Unlocked!');
     }
   };
@@ -218,6 +239,19 @@ export default function Home() {
           title="New Game"
         >
           <RotateCcw className="w-5 h-5" />
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            setShowSettings(true);
+            triggerClickHaptic();
+            playSound('click');
+          }}
+          className="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-lg transition-colors"
+          title="Settings"
+        >
+          <Settings className="w-5 h-5" />
         </motion.button>
       </div>
 
@@ -506,6 +540,24 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Settings Panel */}
+      <SettingsPanel
+        isOpen={showSettings}
+        onClose={() => {
+          setShowSettings(false);
+          triggerClickHaptic();
+          playSound('click');
+        }}
+      />
+
+      {/* Celebration Effects */}
+      <Sparkles show={celebration !== null} count={50} />
+      <FloatingText
+        text={celebration || ''}
+        show={celebration !== null}
+        color="#FFD700"
+      />
     </main>
   );
 }
