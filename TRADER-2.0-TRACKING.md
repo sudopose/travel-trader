@@ -87,18 +87,40 @@
 
 ---
 
-## Phase 6: Progression 🔄
-- [ ] Leveling System (data ready)
-- [ ] Perks System (data ready)
-- [ ] Achievements (data ready)
-- [ ] Leaderboards (not started)
+## Phase 6: Progression ✅
+**Status:** COMPLETE
+**Commit:** 7158a06
+**Duration:** ~2 hours
 
-**Target:** ~2 hours
+- [x] Leveling System (10 levels, XP from trades)
+- [x] Perks System (14 perks across 3 tiers)
+- [x] Achievements (20+ achievements across 5 categories)
+- [x] Progression Panel UI (3 tabs: overview, perks, achievements)
+- [x] XP Gains (1 XP per 10 gold profit)
+- [x] Level Up Notifications
+- [x] Achievement Unlock Notifications
+- [x] Progress Tracking (trades, gold, cities, streaks)
+- [x] Auto Achievement Checking (after every action)
+- [x] Perk Unlocks by Level
+
+**Total: 4 features**
+
+---
+
+## Phase 7: Extras & Polish 📅
+- [ ] Leaderboards (local/global)
+- [ ] Save/Load System (localStorage)
+- [ ] Statistics Dashboard (detailed analytics)
+- [ ] Cloud Sync (optional, Firebase/Supabase)
+- [ ] Tutorial System (first-time experience)
+- [ ] Daily Challenges (random objectives)
+
+**Target:** ~3-4 hours
 
 ---
 
 ## Total Features: 50+
 **Estimated Timeline:** 4-5 days (12-15 hours total)
-**Current Progress:** 32/50 features (64%)
+**Current Progress:** 36/50 features (72%)
 
-**Next Step:** Phase 6 - UI Integration (data structures already created in progression.ts)
+**Next Step:** Phase 7 - Extras & Polish (optional features)
