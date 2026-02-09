@@ -48,6 +48,8 @@ export interface PlayerProgression {
   perksUnlocked: string[];
   achievementsUnlocked: string[];
   lastLogin: number;
+  currentStreak: number;
+  bestStreak: number;
 }
 
 // Level data
@@ -677,5 +679,7 @@ export function createPlayerProgression(): PlayerProgression {
     perksUnlocked: [],
     achievementsUnlocked: [],
     lastLogin: Date.now(),
+    currentStreak: 0,
+    bestStreak: 0,
   };
 }

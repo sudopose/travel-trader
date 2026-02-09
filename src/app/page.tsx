@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, Globe, RotateCcw, Wallet, Users, Target, Menu, Settings, Star } from 'lucide-react';
+import { Package, Globe, RotateCcw, Wallet, Users, Target, Menu, Settings, Star, Trophy } from 'lucide-react';
 import { triggerClickHaptic, triggerSuccessHaptic, triggerErrorHaptic, triggerPurchaseHaptic, triggerTravelHaptic } from '@/lib/haptics';
 import { playSound } from '@/lib/sounds';
 import {
@@ -26,7 +26,17 @@ import SettingsPanel from '@/components/SettingsPanel';
 import { Sparkles, FloatingText } from '@/components/ui/ParticleEffects';
 import StartScreen from '@/components/StartScreen';
 import GameOverOverlay from '@/components/GameOverOverlay';
+import ProgressionPanel from '@/components/ProgressionPanel';
 import { GameMode, createGameModeState, checkWinCondition, checkLoseCondition, calculateScore, getModeEmoji, getModeDisplayName, GAME_MODES } from '@/lib/game-modes';
+import {
+  createPlayerProgression,
+  getLevelForXP,
+  calculateXPFromTrade,
+  checkAchievement,
+  ACHIEVEMENTS,
+  LEVELS,
+  PlayerProgression,
+} from '@/lib/progression';
 import {
   MultiplayerState,
   createMultiplayerState,
@@ -58,6 +68,11 @@ export default function Home() {
   const [gameMode, setGameMode] = useState<GameMode | null>(null);
   const [gameModeState, setGameModeState] = useState(createGameModeState('sandbox'));
 
+  // Progression state
+  const [progression, setProgression] = useState<PlayerProgression>(createPlayerProgression());
+  const [showProgressionPanel, setShowProgressionPanel] = useState(false);
+  const [profitPerTrade, setProfitPerTrade] = useState(0);
+
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
 
@@ -73,6 +88,7 @@ export default function Home() {
     if (typeof result === 'string' || 'error' in result) {
       showNotification('error', typeof result === 'string' ? result : result.error);
     } else {
+      const oldMoney = gameState.money;
       setGameState(result);
       playSound('buy');
       triggerPurchaseHaptic();
@@ -81,14 +97,20 @@ export default function Home() {
   };
 
   const handleSell = (goodId: string) => {
+    const oldMoney = gameState.money;
     const result = sellGood(gameState, goodId, 1);
     if (typeof result === 'string' || 'error' in result) {
       showNotification('error', typeof result === 'string' ? result : result.error);
     } else {
+      const newMoney = result.money;
+      const profit = newMoney - oldMoney;
       setGameState(result);
       playSound('sell');
       triggerSuccessHaptic();
       showNotification('success', 'Sold!');
+
+      // Update progression from trade
+      updateProgressionFromTrade(profit);
     }
   };
 
@@ -101,6 +123,9 @@ export default function Home() {
       playSound('travel');
       triggerTravelHaptic();
       showNotification('success', 'Traveled!');
+
+      // Check location-related achievements
+      updateProgressionFromTravel(0);
     }
   };
 
@@ -115,6 +140,104 @@ export default function Home() {
       setCelebration('🎉');
       setTimeout(() => setCelebration(null), 2000);
       showNotification('success', 'Unlocked!');
+    }
+  };
+
+  // Progression helper functions
+  const updateProgressionFromTrade = (profit: number) => {
+    setProfitPerTrade(profit);
+
+    const xpGain = calculateXPFromTrade(profit);
+    const newXP = progression.xp + xpGain;
+    const newLevel = getLevelForXP(newXP);
+    const currentLevelData = LEVELS.find(l => l.level === progression.level);
+    const newLevelData = LEVELS.find(l => l.level === newLevel);
+
+    const newProgression: PlayerProgression = {
+      ...progression,
+      xp: newXP,
+      level: newLevel,
+      xpToNext: newLevelData ? newLevelData.xpRequired - newXP : 0,
+      totalTrades: progression.totalTrades + 1,
+      goldEarned: progression.goldEarned + profit,
+    };
+
+    // Check achievements
+    const newlyUnlocked: string[] = [];
+    ACHIEVEMENTS.forEach(achievement => {
+      if (!progression.achievementsUnlocked.includes(achievement.id)) {
+        const unlocked = checkAchievement(
+          achievement,
+          newProgression.totalTrades,
+          newProgression.goldEarned,
+          gameState.unlockedLocations.length,
+          profit,
+          gameState.turns,
+          gameModeState.config.maxTurns,
+        );
+        if (unlocked) {
+          newlyUnlocked.push(achievement.id);
+        }
+      }
+    });
+
+    if (newlyUnlocked.length > 0) {
+      newProgression.achievementsUnlocked = [
+        ...progression.achievementsUnlocked,
+        ...newlyUnlocked,
+      ];
+      showNotification('success', `🏆 ${newlyUnlocked.length} achievement${newlyUnlocked.length > 1 ? 's' : ''} unlocked!`);
+      playSound('goalComplete');
+      triggerSuccessHaptic();
+    }
+
+    // Level up notification
+    if (newLevel > progression.level) {
+      showNotification('success', `🎉 Level up! Now level ${newLevel}`);
+      playSound('goalComplete');
+      triggerSuccessHaptic();
+      setCelebration('⬆️');
+      setTimeout(() => setCelebration(null), 2000);
+    }
+
+    setProgression(newProgression);
+  };
+
+  const updateProgressionFromTravel = (distance: number) => {
+    // Simple travel XP (optional)
+    // const xpGain = Math.floor(distance / 100);
+    // setProgression(prev => ({
+    //   ...prev,
+    //   xp: prev.xp + xpGain,
+    // }));
+
+    // Check location achievements
+    const newlyUnlocked: string[] = [];
+    ACHIEVEMENTS.forEach(achievement => {
+      if (!progression.achievementsUnlocked.includes(achievement.id)) {
+        const unlocked = checkAchievement(
+          achievement,
+          progression.totalTrades,
+          progression.goldEarned,
+          gameState.unlockedLocations.length,
+          profitPerTrade,
+          gameState.turns,
+          gameModeState.config.maxTurns,
+        );
+        if (unlocked) {
+          newlyUnlocked.push(achievement.id);
+        }
+      }
+    });
+
+    if (newlyUnlocked.length > 0) {
+      setProgression(prev => ({
+        ...prev,
+        achievementsUnlocked: [...prev.achievementsUnlocked, ...newlyUnlocked],
+      }));
+      showNotification('success', `🏆 ${newlyUnlocked.length} achievement${newlyUnlocked.length > 1 ? 's' : ''} unlocked!`);
+      playSound('goalComplete');
+      triggerSuccessHaptic();
     }
   };
 
@@ -344,6 +467,24 @@ export default function Home() {
           title="Settings"
         >
           <Settings className="w-5 h-5" />
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            setShowProgressionPanel(true);
+            triggerClickHaptic();
+            playSound('click');
+          }}
+          className="bg-purple-800 hover:bg-purple-700 text-white p-2 rounded-lg transition-colors relative"
+          title="Progression"
+        >
+          <Trophy className="w-5 h-5" />
+          {progression.achievementsUnlocked.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
+              {progression.achievementsUnlocked.length}
+            </span>
+          )}
         </motion.button>
       </div>
 
@@ -584,12 +725,12 @@ export default function Home() {
                   {getModeEmoji(gameMode)} {getModeDisplayName(gameMode)} | Turn: {gameState.turns}
                   {gameModeState.config.maxTurns && ` / ${gameModeState.config.maxTurns}`} | Inventory: {usedSlots}/{gameState.inventorySlots} slots
                 </p>
-                <p className="mt-1">💡 Phase 5 Complete - Game Modes Ready!</p>
+                <p className="mt-1">💡 Phase 6 Complete - Progression System Ready!</p>
               </>
             ) : (
               <>
                 <p>Turn: {gameState.turns} | Inventory: {usedSlots}/{gameState.inventorySlots} slots</p>
-                <p className="mt-1">💡 Phase 5 Complete - Game Modes Ready!</p>
+                <p className="mt-1">💡 Phase 6 Complete - Progression System Ready!</p>
               </>
             )}
           </>
@@ -601,7 +742,7 @@ export default function Home() {
               </p>
             )}
             <p>Turn: {gameState.turns} | Inventory: {usedSlots}/{gameState.inventorySlots} slots | {multiplayerState.players.length} Players</p>
-            <p className="mt-1">💡 {multiplayerState.mode === 'split' ? 'Split-screen mode active' : 'Hot-seat mode active'}</p>
+            <p className="mt-1">💡 {multiplayerState.mode === 'split' ? 'Split-screen mode active' : 'Hot-seat mode active'} | Phase 6 Complete!</p>
           </>
         )}
       </div>
@@ -653,6 +794,19 @@ export default function Home() {
           triggerClickHaptic();
           playSound('click');
         }}
+      />
+
+      {/* Progression Panel */}
+      <ProgressionPanel
+        isOpen={showProgressionPanel}
+        onClose={() => {
+          setShowProgressionPanel(false);
+          triggerClickHaptic();
+          playSound('click');
+        }}
+        progression={progression}
+        maxTurns={gameModeState.config.maxTurns}
+        profitPerTrade={profitPerTrade}
       />
 
       {/* Celebration Effects */}

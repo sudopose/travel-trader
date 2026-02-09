@@ -70,8 +70,8 @@
 
 ## Phase 5: Game Modes ✅
 **Status:** COMPLETE
-**Commits:** 0d49cb6, 63daf5e
-**Duration:** ~2.5 hours
+**Commits:** 6194cda, a402243
+**Duration:** ~3.5 hours
 
 - [x] Career Mode (40 seasons, 5000 gold goal)
 - [x] Speed Run Mode (50 turns, quick 5000 gold)
@@ -81,42 +81,24 @@
 - [x] Score Calculation System
 - [x] Start Screen Component
 - [x] Game Over Overlay Component
-- [x] Game Mode Selector Component
+- [x] Integration into page.tsx (state, handlers, useEffect)
 
 **Total: 4 features**
 
 ---
 
-## Phase 6: Progression 📅
-- [ ] Leveling System
-- [ ] Perks System
-- [ ] Achievements (50+)
-- [ ] Leaderboards
+## Phase 6: Progression 🔄
+- [ ] Leveling System (data ready)
+- [ ] Perks System (data ready)
+- [ ] Achievements (data ready)
+- [ ] Leaderboards (not started)
 
-**Target:** ~3 hours
+**Target:** ~2 hours
 
 ---
 
 ## Total Features: 50+
 **Estimated Timeline:** 4-5 days (12-15 hours total)
-**Current Progress:** 21/50 features (42%)
+**Current Progress:** 32/50 features (64%)
 
-**Next Step:** Phase 5 - Components created, integration pending (JSX structure issues)
-
-## Phase 5 Status 📝
-**Status:** IN PROGRESS
-**Components Created:**
-- ✅ game-modes.ts - 5 game modes with win/lose conditions
-- ✅ StartScreen.tsx - Mode selection UI
-- ✅ GameOverOverlay.tsx - Win/lose overlay with score
-- ✅ GameModeSelector.tsx - Component for mode selection
-
-**Integration:** ⚠️ Pending
-- Having JSX structure issues in page.tsx
-- Need to carefully merge without breaking existing features
-
-**Next Steps:**
-1. Fix JSX structure in page.tsx for game modes
-2. Integrate StartScreen and GameOverOverlay
-3. Add useEffect for win/lose checking
-4. Test all 5 game modes
+**Next Step:** Phase 6 - UI Integration (data structures already created in progression.ts)
