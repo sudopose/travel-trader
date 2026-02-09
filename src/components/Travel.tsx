@@ -1,8 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Plane, Lock, Map } from 'lucide-react';
-import { Location } from '@/lib/game-data';
+import { Plane, Lock, Map, CloudSun } from 'lucide-react';
+import { Location, Weather } from '@/lib/game-data';
 
 interface TravelProps {
   currentLocation: string;
@@ -10,6 +10,7 @@ interface TravelProps {
   onTravel: (locationId: string) => void;
   onUnlock: (locationId: string) => void;
   money: number;
+  weather?: Weather;
 }
 
 export default function Travel({
@@ -18,15 +19,28 @@ export default function Travel({
   onTravel,
   onUnlock,
   money,
+  weather,
 }: TravelProps) {
+  // Calculate travel cost modifier from weather
+  const getAdjustedCost = (baseCost: number) => {
+    if (!weather) return baseCost;
+    return Math.round(baseCost * weather.travelCostModifier);
+  };
+
   return (
     <div className="space-y-3">
       <h2 className="text-lg font-bold text-blue-300 flex items-center gap-2">
         <Map size={20} />
         Travel
+        {weather && weather.travelCostModifier > 1 && (
+          <span className="text-xs bg-orange-900/50 text-orange-300 px-2 py-1 rounded-full flex items-center gap-1">
+            <CloudSun size={12} />
+            Weather +{(weather.travelCostModifier - 1) * 100}%
+          </span>
+        )}
       </h2>
 
-      <div className="grid grid-cols-1 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         {[
           {
             id: 'istanbul',
@@ -57,11 +71,67 @@ export default function Travel({
             unlockCost: null,
           },
           {
+            id: 'newdelhi',
+            name: 'New Delhi',
+            emoji: '🕌',
+            cost: 55,
+            unlockCost: 600,
+          },
+          {
             id: 'beijing',
             name: 'Beijing',
             emoji: '🏯',
             cost: 50,
             unlockCost: 500,
+          },
+          {
+            id: 'singapore',
+            name: 'Singapore',
+            emoji: '🦁',
+            cost: 70,
+            unlockCost: 800,
+          },
+          {
+            id: 'hongkong',
+            name: 'Hong Kong',
+            emoji: '🏙️',
+            cost: 75,
+            unlockCost: 1500,
+          },
+          {
+            id: 'capetown',
+            name: 'Cape Town',
+            emoji: '🏔️',
+            cost: 80,
+            unlockCost: 1200,
+          },
+          {
+            id: 'rio',
+            name: 'Rio de Janeiro',
+            emoji: '🎭',
+            cost: 85,
+            unlockCost: 900,
+          },
+          {
+            id: 'sydney',
+            name: 'Sydney',
+            emoji: '🦘',
+            cost: 90,
+            unlockCost: 2000,
+          },
+          {
+            id: 'moscow',
+            name: 'Moscow',
+            emoji: '🏰',
+            cost: 95,
+            unlockCost: 1100,
+          },
+          {
+            id: 'reykjavik',
+            name: 'Reykjavik',
+            emoji: '🌋',
+            cost: 100,
+            unlockCost: 1300,
           },
           {
             id: 'newyork',
@@ -73,7 +143,8 @@ export default function Travel({
         ].map((loc, index) => {
           const isUnlocked = unlockedLocations.includes(loc.id);
           const isCurrent = currentLocation === loc.id;
-          const canTravel = money >= loc.cost && isUnlocked && !isCurrent;
+          const adjustedCost = getAdjustedCost(loc.cost);
+          const canTravel = money >= adjustedCost && isUnlocked && !isCurrent;
           const canUnlock = loc.unlockCost && money >= loc.unlockCost && !isUnlocked;
 
           return (
@@ -98,7 +169,12 @@ export default function Travel({
                     {isCurrent ? (
                       <div className="text-xs text-blue-300">📍 You are here</div>
                     ) : isUnlocked ? (
-                      <div className="text-xs text-slate-400">Cost: {loc.cost}🪙</div>
+                      <div className="text-xs text-slate-400">
+                        Cost: {adjustedCost}🪙
+                        {weather && weather.travelCostModifier > 1 && adjustedCost !== loc.cost && (
+                          <span className="text-orange-400 ml-1">(+{(weather.travelCostModifier - 1) * 100}%)</span>
+                        )}
+                      </div>
                     ) : (
                       <div className="text-xs text-slate-400">
                         Unlock: {loc.unlockCost}🪙
