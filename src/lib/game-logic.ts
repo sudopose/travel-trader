@@ -192,7 +192,7 @@ export function buyGood(
   // Check inventory space
   const inventoryCheck = addToInventory(state, goodId, quantity);
   if (!inventoryCheck.canAdd) {
-    return { error: inventoryCheck.reason };
+    return { error: inventoryCheck.reason ?? 'Inventory full!' };
   }
 
   const price = calculatePrice(good, location, state.events, state.season, state.weather);
@@ -230,7 +230,7 @@ export function sellGood(
   // Check inventory
   const inventoryCheck = removeFromInventory(state, goodId, quantity);
   if (!inventoryCheck.canRemove) {
-    return { error: inventoryCheck.reason };
+    return { error: inventoryCheck.reason ?? 'Not enough items!' };
   }
 
   const price = calculatePrice(good, location, state.events, state.season, state.weather);
@@ -433,7 +433,13 @@ export function getRandomDailyEvent(season: Season): MarketEvent | undefined {
   const pool = [...activeSeasonalEvents, ...dailyEvents];
   if (pool.length === 0) return undefined;
 
-  return pool[Math.floor(Math.random() * pool.length)];
+  const event = pool[Math.floor(Math.random() * pool.length)];
+
+  // Return a copy with remainingTurns set
+  return {
+    ...event,
+    remainingTurns: event.duration,
+  };
 }
 
 export function getRandomRareEvent(season: Season): MarketEvent | undefined {
@@ -443,7 +449,13 @@ export function getRandomRareEvent(season: Season): MarketEvent | undefined {
   const pool = [...activeSeasonalRareEvents, ...rareEvents];
   if (pool.length === 0) return undefined;
 
-  return pool[Math.floor(Math.random() * pool.length)];
+  const event = pool[Math.floor(Math.random() * pool.length)];
+
+  // Return a copy with remainingTurns set
+  return {
+    ...event,
+    remainingTurns: event.duration,
+  };
 }
 
 export function getEventEffectMultiplier(
@@ -506,10 +518,13 @@ export function sortInventory(
 
     if (!goodA || !goodB) return 0;
 
+    const currentLocation = getLocationById(state.currentLocation);
+
     switch (sortBy) {
       case 'value':
-        const priceA = calculatePrice(goodA, getLocationById(state.currentLocation), state.events, state.season, state.weather);
-        const priceB = calculatePrice(goodB, getLocationById(state.currentLocation), state.events, state.season, state.weather);
+        if (!currentLocation) return 0;
+        const priceA = calculatePrice(goodA, currentLocation, state.events, state.season, state.weather);
+        const priceB = calculatePrice(goodB, currentLocation, state.events, state.season, state.weather);
         return priceB - priceA;
       case 'name':
         return goodA.name.localeCompare(goodB.name);
@@ -634,7 +649,7 @@ export function getSeasonDisplay(season: Season): { name: string; emoji: string 
   return SEASON_DISPLAY[season];
 }
 
-// Volatility Meter
+export function getVolatilityLevel(events: MarketEvent[]): 'low' | 'medium' | 'high' {
   const volatility = calculateMarketVolatility(events);
 
   if (volatility < 20) return 'low';

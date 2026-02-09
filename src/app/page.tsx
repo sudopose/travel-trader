@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Package, Globe, RotateCcw, Wallet } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Package, Globe, RotateCcw, Wallet, Users, Target, Menu } from 'lucide-react';
 import {
   getInitialGameState,
   processEvents,
@@ -17,6 +17,20 @@ import Market from '@/components/Market';
 import Travel from '@/components/Travel';
 import Inventory from '@/components/Inventory';
 import History from '@/components/History';
+import MultiplayerPanel from '@/components/MultiplayerPanel';
+import SplitScreenLayout from '@/components/SplitScreenLayout';
+import TeamGoalsPanel from '@/components/TeamGoalsPanel';
+import {
+  MultiplayerState,
+  createMultiplayerState,
+  Role,
+  TEAM_GOALS_TEMPLATES,
+  switchMode,
+  addPlayer,
+  assignRole,
+  advanceHotseatTurn,
+  updateTeamGoals,
+} from '@/lib/multiplayer-data';
 
 type Tab = 'market' | 'travel' | 'inventory' | 'history';
 
@@ -24,6 +38,11 @@ export default function Home() {
   const [gameState, setGameState] = useState(getInitialGameState());
   const [activeTab, setActiveTab] = useState<Tab>('market');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [multiplayerState, setMultiplayerState] = useState<MultiplayerState>(createMultiplayerState());
+  const [showMultiplayerPanel, setShowMultiplayerPanel] = useState(false);
+  const [showTeamGoals, setShowTeamGoals] = useState(false);
+  const [player1View, setPlayer1View] = useState<Tab>('market');
+  const [player2View, setPlayer2View] = useState<Tab>('travel');
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -77,9 +96,56 @@ export default function Home() {
     }
   };
 
+  // Multiplayer handlers
+  const handleSwitchMode = (mode: 'single' | 'split' | 'hotseat') => {
+    setMultiplayerState(switchMode(multiplayerState, mode));
+  };
+
+  const handleAddPlayer = (name: string, role: Role) => {
+    setMultiplayerState(addPlayer(multiplayerState, name, role));
+  };
+
+  const handleAssignRole = (playerId: string, role: Role) => {
+    setMultiplayerState(assignRole(multiplayerState, playerId, role));
+  };
+
+  const handleAdvanceHotseat = () => {
+    setMultiplayerState(advanceHotseatTurn(multiplayerState));
+    showNotification('success', `Turn passed to ${multiplayerState.players[(multiplayerState.currentPlayerIndex + 1) % multiplayerState.players.length]?.name}`);
+  };
+
+  const handleAddGoal = (goalTemplateId: string) => {
+    const template = TEAM_GOALS_TEMPLATES.find(t => t.id === goalTemplateId);
+    if (template && multiplayerState.teamGoals.length < 3) {
+      setMultiplayerState({
+        ...multiplayerState,
+        teamGoals: [
+          ...multiplayerState.teamGoals,
+          {
+            ...template,
+            current: 0,
+            completed: false,
+          },
+        ],
+      });
+    }
+  };
+
+  const handleStartSplitScreen = () => {
+    if (multiplayerState.players.length >= 2) {
+      setShowMultiplayerPanel(false);
+      showNotification('success', 'Split-screen mode activated!');
+    } else {
+      showNotification('error', 'Need at least 2 players for split-screen mode');
+    }
+  };
+
   const usedSlots = Object.values(gameState.inventory).reduce((sum, count) => sum + count, 0);
   const seasonDisplay = SEASON_DISPLAY[gameState.season];
   const currentLocation = getLocationById(gameState.currentLocation);
+
+  // Update team goals whenever game state changes
+  const updatedMultiplayerState = updateTeamGoals(multiplayerState, gameState);
 
   // Process events for display (not mutating state)
   const processedState = processEvents(gameState);
@@ -111,6 +177,37 @@ export default function Home() {
 
       {/* Buttons */}
       <div className="flex justify-center items-center gap-4 mb-6">
+        {multiplayerState.mode === 'single' ? (
+          <motion.button
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowMultiplayerPanel(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+            title="Multiplayer"
+          >
+            <Users className="w-5 h-5" />
+            <span className="text-sm font-semibold">Multiplayer</span>
+          </motion.button>
+        ) : (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowTeamGoals(!showTeamGoals)}
+            className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+              showTeamGoals ? 'bg-yellow-600' : 'bg-slate-800 hover:bg-slate-700'
+            } text-white`}
+          >
+            <Target className="w-5 h-5" />
+            <span className="text-sm font-semibold">Team Goals</span>
+            {updatedMultiplayerState.teamGoals.filter(g => g.completed).length > 0 && (
+              <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
+                {updatedMultiplayerState.teamGoals.filter(g => g.completed).length}
+              </span>
+            )}
+          </motion.button>
+        )}
         <motion.button
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -181,87 +278,234 @@ export default function Home() {
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.1 }}
-        className="flex gap-2 overflow-x-auto pb-2"
-      >
-        {[
-          { id: 'market' as Tab, label: 'Market', icon: '🛒' },
-          { id: 'travel' as Tab, label: 'Travel', icon: '✈️' },
-          { id: 'inventory' as Tab, label: `Inventory (${usedSlots}/${gameState.inventorySlots})`, icon: '📦' },
-          { id: 'history' as Tab, label: 'History', icon: '📜' },
-        ].map((tab) => (
-          <motion.button
-            key={tab.id}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
-              activeTab === tab.id
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-            }`}
-          >
-            <span>{tab.icon}</span>
-            <span className="font-semibold text-sm md:text-base">{tab.label}</span>
-          </motion.button>
-        ))}
-      </motion.div>
+      {/* Tab Navigation - Only show in single player mode */}
+      {multiplayerState.mode === 'single' && (
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="flex gap-2 overflow-x-auto pb-2"
+        >
+          {[
+            { id: 'market' as Tab, label: 'Market', icon: '🛒' },
+            { id: 'travel' as Tab, label: 'Travel', icon: '✈️' },
+            { id: 'inventory' as Tab, label: `Inventory (${usedSlots}/${gameState.inventorySlots})`, icon: '📦' },
+            { id: 'history' as Tab, label: 'History', icon: '📜' },
+          ].map((tab) => (
+            <motion.button
+              key={tab.id}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span className="font-semibold text-sm md:text-base">{tab.label}</span>
+            </motion.button>
+          ))}
+        </motion.div>
+      )}
 
-      {/* Tab Content */}
-      <motion.div
-        key={activeTab}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2 }}
-        className="bg-slate-900/50 rounded-2xl p-4 md:p-6 border border-slate-800"
-      >
-        {activeTab === 'market' && currentLocation && (
-          <Market
-            location={currentLocation}
-            events={gameState.events}
-            onBuy={handleBuy}
-            onSell={handleSell}
-            inventory={gameState.inventory}
-            season={gameState.season}
-            weather={gameState.weather}
-          />
-        )}
+      {/* Tab Content - Single Player */}
+      {multiplayerState.mode === 'single' && (
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="bg-slate-900/50 rounded-2xl p-4 md:p-6 border border-slate-800"
+        >
+          {activeTab === 'market' && currentLocation && (
+            <Market
+              location={currentLocation}
+              events={gameState.events}
+              onBuy={handleBuy}
+              onSell={handleSell}
+              inventory={gameState.inventory}
+              season={gameState.season}
+              weather={gameState.weather}
+            />
+          )}
 
-        {activeTab === 'travel' && (
-          <Travel
-            currentLocation={gameState.currentLocation}
-            unlockedLocations={gameState.unlockedLocations}
-            onTravel={handleTravel}
-            onUnlock={handleUnlock}
-            money={gameState.money}
-            weather={gameState.weather}
-          />
-        )}
+          {activeTab === 'travel' && (
+            <Travel
+              currentLocation={gameState.currentLocation}
+              unlockedLocations={gameState.unlockedLocations}
+              onTravel={handleTravel}
+              onUnlock={handleUnlock}
+              money={gameState.money}
+              weather={gameState.weather}
+            />
+          )}
 
-        {activeTab === 'inventory' && (
-          <Inventory
-            gameState={gameState}
-            season={gameState.season}
-            weather={gameState.weather}
-          />
-        )}
+          {activeTab === 'inventory' && (
+            <Inventory
+              gameState={gameState}
+              season={gameState.season}
+              weather={gameState.weather}
+            />
+          )}
 
-        {activeTab === 'history' && (
-          <History
-            history={gameState.history}
-          />
-        )}
-      </motion.div>
+          {activeTab === 'history' && (
+            <History
+              history={gameState.history}
+            />
+          )}
+        </motion.div>
+      )}
+
+      {/* Split Screen Layout */}
+      {multiplayerState.mode === 'split' && updatedMultiplayerState.players.length >= 2 && (
+        <SplitScreenLayout
+          gameState={gameState}
+          season={gameState.season}
+          weather={gameState.weather}
+          player1={updatedMultiplayerState.players[0]}
+          player2={updatedMultiplayerState.players[1]}
+          player1View={player1View}
+          player2View={player2View}
+          onPlayer1ChangeView={setPlayer1View}
+          onPlayer2ChangeView={setPlayer2View}
+        />
+      )}
+
+      {/* Hot Seat Mode - Same as single player but with turn indicator */}
+      {multiplayerState.mode === 'hotseat' && (
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="bg-slate-900/50 rounded-2xl p-4 md:p-6 border border-slate-800"
+        >
+          <div className="mb-4 p-3 bg-yellow-900/30 rounded-xl border border-yellow-700/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{updatedMultiplayerState.players[updatedMultiplayerState.currentPlayerIndex]?.avatar}</span>
+                <div>
+                  <div className="text-white font-semibold">
+                    {updatedMultiplayerState.players[updatedMultiplayerState.currentPlayerIndex]?.name}
+                  </div>
+                  <div className="text-xs text-yellow-400">
+                    {updatedMultiplayerState.players[updatedMultiplayerState.currentPlayerIndex]?.role === 'trader' && '🤝 Trader - Can buy/sell'}
+                    {updatedMultiplayerState.players[updatedMultiplayerState.currentPlayerIndex]?.role === 'navigator' && '🧭 Navigator - Can travel/unlock'}
+                    {updatedMultiplayerState.players[updatedMultiplayerState.currentPlayerIndex]?.role === 'merchant' && '💰 Merchant - Can view trends'}
+                    {updatedMultiplayerState.players[updatedMultiplayerState.currentPlayerIndex]?.role === 'free' && '🎭 Free Agent - Can do everything'}
+                  </div>
+                </div>
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleAdvanceHotseat}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg font-semibold"
+              >
+                Next Turn
+              </motion.button>
+            </div>
+          </div>
+
+          {activeTab === 'market' && currentLocation && (
+            <Market
+              location={currentLocation}
+              events={gameState.events}
+              onBuy={handleBuy}
+              onSell={handleSell}
+              inventory={gameState.inventory}
+              season={gameState.season}
+              weather={gameState.weather}
+            />
+          )}
+
+          {activeTab === 'travel' && (
+            <Travel
+              currentLocation={gameState.currentLocation}
+              unlockedLocations={gameState.unlockedLocations}
+              onTravel={handleTravel}
+              onUnlock={handleUnlock}
+              money={gameState.money}
+              weather={gameState.weather}
+            />
+          )}
+
+          {activeTab === 'inventory' && (
+            <Inventory
+              gameState={gameState}
+              season={gameState.season}
+              weather={gameState.weather}
+            />
+          )}
+
+          {activeTab === 'history' && (
+            <History
+              history={gameState.history}
+            />
+          )}
+        </motion.div>
+      )}
 
       {/* Footer */}
       <div className="text-center text-slate-500 text-xs py-4">
-        <p>Turn: {gameState.turns} | Inventory: {usedSlots}/{gameState.inventorySlots} slots</p>
-        <p className="mt-1">💡 Phase 2 Complete - Advanced Features Ready!</p>
+        {multiplayerState.mode === 'single' ? (
+          <>
+            <p>Turn: {gameState.turns} | Inventory: {usedSlots}/{gameState.inventorySlots} slots</p>
+            <p className="mt-1">💡 Phase 3 Complete - Multiplayer Features Ready!</p>
+          </>
+        ) : (
+          <>
+            {multiplayerState.mode === 'hotseat' && (
+              <p className="text-lg font-bold text-white mb-2">
+                Current Turn: {multiplayerState.players[multiplayerState.currentPlayerIndex]?.avatar} {multiplayerState.players[multiplayerState.currentPlayerIndex]?.name}
+              </p>
+            )}
+            <p>Turn: {gameState.turns} | Inventory: {usedSlots}/{gameState.inventorySlots} slots | {multiplayerState.players.length} Players</p>
+            <p className="mt-1">💡 {multiplayerState.mode === 'split' ? 'Split-screen mode active' : 'Hot-seat mode active'}</p>
+          </>
+        )}
       </div>
+
+      {/* Multiplayer Panel */}
+      <AnimatePresence>
+        {showMultiplayerPanel && (
+          <MultiplayerPanel
+            multiplayerState={updatedMultiplayerState}
+            onClose={() => setShowMultiplayerPanel(false)}
+            onSwitchMode={handleSwitchMode}
+            onAddPlayer={handleAddPlayer}
+            onAssignRole={handleAssignRole}
+            onAdvanceHotseat={handleAdvanceHotseat}
+            onAddGoal={handleAddGoal}
+            onStartSplitScreen={handleStartSplitScreen}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Team Goals Panel (Slide-over) */}
+      <AnimatePresence>
+        {showTeamGoals && multiplayerState.mode !== 'single' && (
+          <motion.div
+            initial={{ x: 400, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 400, opacity: 0 }}
+            className="fixed top-0 right-0 h-full w-80 bg-slate-900/95 border-l border-slate-700 p-4 overflow-y-auto z-40"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-white">Team Goals</h2>
+              <button
+                onClick={() => setShowTeamGoals(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <TeamGoalsPanel goals={updatedMultiplayerState.teamGoals} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

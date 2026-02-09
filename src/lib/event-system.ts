@@ -34,7 +34,7 @@ export interface EventSystem {
 export function createEventSystem(): EventSystem {
   return {
     events: [],
-    chains: EVENT_CHAINS,
+    chains: Object.values(EVENT_CHAINS),
     currentChain: null,
     chainProgress: 0,
   };
@@ -177,10 +177,9 @@ export function triggerEventChain(system: EventSystem): EventSystem | null {
       return null;
     }
 
-    // Select random chain
-    const chainKeys = Object.keys(EVENT_CHAINS);
-    const chainKey = chainKeys[Math.floor(Math.random() * chainKeys.length)];
-    const chain = EVENT_CHAINS[chainKey];
+    // Select random chain from array
+    const chainsArray = system.chains;
+    const chain = chainsArray[Math.floor(Math.random() * chainsArray.length)];
 
     return {
       ...system,
@@ -197,21 +196,7 @@ export function triggerEventChain(system: EventSystem): EventSystem | null {
 }
 
 export function getCurrentEvent(system: EventSystem): MarketEvent | null {
-  // Get the active event from current chain if there is one
-  if (system.currentChain && system.currentChain.events.length > 0) {
-    // Find the event with highest weight based on progress
-    const totalWeight = system.currentChain.events.reduce((sum, e) => sum + e.weight, 0);
-    let random = Math.random() * totalWeight;
-
-    for (const event of system.currentChain.events) {
-      random -= event.weight;
-      if (random <= 0) {
-        return MARKET_EVENTS.find((e) => e.id === event.eventId) || null;
-      }
-    }
-  }
-
-  // Get the most recently added event
+  // Get the most recently added event from system events
   if (system.events.length > 0) {
     return system.events[system.events.length - 1];
   }

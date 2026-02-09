@@ -47,6 +47,8 @@ export interface MarketEvent {
   season?: Season; // Season for seasonal events
   isDaily?: boolean; // Short-term events (1-3 turns)
   isRare?: boolean; // Rare events (1% chance)
+  volatility?: number; // Extra volatility for this event
+  travelCostModifier?: number; // Multiplier for travel costs
 }
 
 export interface GameState {

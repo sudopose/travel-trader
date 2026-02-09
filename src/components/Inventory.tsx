@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Package, SortAsc, ShoppingCart, Bundle } from 'lucide-react';
+import { Package, SortAsc, ShoppingCart, Package2 } from 'lucide-react';
 import { GameState, Season } from '@/lib/game-data';
 import { sortInventory, getGoodById, calculatePrice, getLocationById } from '@/lib/game-logic';
 
@@ -57,7 +57,7 @@ export default function Inventory({ gameState, season, weather }: InventoryProps
           onClick={() => {}}
           className="bg-green-600 hover:bg-green-700 text-white text-xs font-semibold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
         >
-          <Bundle size={14} />
+          <Package2 size={14} />
           Bundle for Travel
         </motion.button>
       </div>
