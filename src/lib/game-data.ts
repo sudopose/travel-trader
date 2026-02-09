@@ -488,6 +488,95 @@ export const MARKET_EVENTS: Omit<MarketEvent, 'remainingTurns'>[] = [
     duration: 3,
     isDaily: true,
   },
+  {
+    id: 'royal_guard',
+    description: '🛡️ Royal Guard! Military protects the trade routes!',
+    affectedGood: 'all',
+    priceMultiplier: 1.2,
+    duration: 3,
+    isDaily: true,
+  },
+  {
+    id: 'fortunes_unlocked',
+    description: '💰 Fortunes Unlocked! Everyone is getting rich!',
+    affectedGood: 'all',
+    priceMultiplier: 1.15,
+    duration: 3,
+    isDaily: true,
+  },
+  {
+    id: 'bounty_of_grains',
+    description: '🌾 Bounty of Grains! Harvest is abundant!',
+    affectedGood: 'food',
+    priceMultiplier: 0.6,
+    duration: 2,
+    isDaily: true,
+  },
+  {
+    id: 'grain_market_boom',
+    description: '📈 Grain Market Boom! Rice and wheat prices skyrocket!',
+    affectedGood: 'food',
+    priceMultiplier: 1.4,
+    duration: 2,
+    isDaily: true,
+  },
+  {
+    id: 'quarantine',
+    description: '🚫 Quarantine! Travel restrictions in effect!',
+    affectedGood: 'all',
+    priceMultiplier: 1.2,
+    travelCostModifier: 1.3,
+    duration: 3,
+    isDaily: true,
+  },
+  {
+    id: 'supply_chain_crisis',
+    description: '📦 Supply Chain Crisis! Goods delayed everywhere!',
+    affectedGood: 'all',
+    priceMultiplier: 1.25,
+    duration: 3,
+    isDaily: true,
+  },
+  {
+    id: 'market_boom',
+    description: '🚀 Market Boom! Everything is trading well!',
+    affectedGood: 'all',
+    priceMultiplier: 1.1,
+    duration: 3,
+    isDaily: true,
+  },
+  {
+    id: 'investor_mania',
+    description: '💵 Investor Mania! Everyone wants to invest!',
+    affectedGood: 'all',
+    priceMultiplier: 1.2,
+    duration: 3,
+    isDaily: true,
+  },
+  {
+    id: 'discovery',
+    description: '🔭 Discovery! New trade routes found!',
+    affectedGood: 'all',
+    priceMultiplier: 1.0,
+    duration: 1,
+    isDaily: true,
+  },
+  {
+    id: 'new_route',
+    description: '🗺️ New Route! Faster and cheaper travel!',
+    affectedGood: 'all',
+    priceMultiplier: 1.0,
+    duration: 2,
+    isDaily: true,
+  },
+  {
+    id: 'expansion_boom',
+    description: '🏙️ Expansion Boom! Cities are growing!',
+    affectedGood: 'all',
+    priceMultiplier: 1.1,
+    duration: 2,
+    isDaily: true,
+  },
   // RARE EVENTS (1% chance)
   {
     id: 'black_swan',
@@ -500,7 +589,7 @@ export const MARKET_EVENTS: Omit<MarketEvent, 'remainingTurns'>[] = [
   },
 ];
 
-// EVENT CHAINS - Sequences of events
+// Extended EVENT CHAINS - Sequences of events
 export const EVENT_CHAINS = {
   gold_rush_to_royal_guard: {
     id: 'gold_rush_to_royal_guard',
@@ -534,6 +623,28 @@ export const EVENT_CHAINS = {
     ],
     triggerChance: 0.015,
     duration: 8,
+  },
+  trade_fair_to_boom: {
+    id: 'trade_fair_to_boom',
+    description: 'Trade Fair → Market Boom → Investor Mania',
+    events: [
+      { eventId: 'trade_fair', weight: 0.4 },
+      { eventId: 'market_boom', weight: 0.4 },
+      { eventId: 'investor_mania', weight: 0.2 },
+    ],
+    triggerChance: 0.025,
+    duration: 7,
+  },
+  discovery_to_expansion: {
+    id: 'discovery_to_expansion',
+    description: 'Discovery → New Route → Expansion Boom',
+    events: [
+      { eventId: 'discovery', weight: 0.5 },
+      { eventId: 'new_route', weight: 0.3 },
+      { eventId: 'expansion_boom', weight: 0.2 },
+    ],
+    triggerChance: 0.02,
+    duration: 6,
   },
 };
 

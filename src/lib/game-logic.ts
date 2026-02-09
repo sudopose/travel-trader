@@ -320,44 +320,19 @@ export function travelTo(state: GameState, locationId: string): GameState | { er
     .map((e) => ({ ...e, remainingTurns: e.remainingTurns - 1 }))
     .filter((e) => e.remainingTurns > 0);
 
-  // Maybe trigger a new market event (30% chance, reduced for advanced events)
-  if (Math.random() < 0.30 && newState.turns > 0) {
-    const newEventTemplate = getRandomDailyEvent(newState.season);
-    if (newEventTemplate) {
-      const newEvent: MarketEvent = {
-        ...newEventTemplate,
-        remainingTurns: newEventTemplate.duration,
-      };
-      newState.events.push(newEvent);
-      newState.history.push({
-        type: 'event',
-        message: `📢 ${newEvent.description}`,
-        turn: newState.turns,
-      });
-    }
-  }
+  // Process events - trigger new events
+  newState = processEvents(newState);
 
-  // Maybe trigger a rare event (1% chance)
-  if (Math.random() < 0.01 && newState.turns > 0) {
-    const rareEvent = getRandomRareEvent(newState.season);
-    if (rareEvent) {
-      const newEvent: MarketEvent = {
-        ...rareEvent,
-        remainingTurns: rareEvent.duration,
-      };
-      newState.events.push(newEvent);
-      newState.history.push({
-        type: 'event',
-        message: `⚡ ${newEvent.description}`,
-        turn: newState.turns,
-      });
-    }
-  }
-
-  // Maybe trigger an event chain (2% chance)
-  const chainResult = triggerEventChain(newState);
-  if (chainResult) {
-    newState = chainResult;
+  // Update season every 4 turns
+  const seasonOrder = [Season.SPRING, Season.SUMMER, Season.AUTUMN, Season.WINTER];
+  const seasonIndex = seasonOrder.indexOf(newState.season);
+  if (newState.turns % 4 === 0) {
+    newState.season = seasonOrder[(seasonIndex + 1) % seasonOrder.length];
+    newState.history.push({
+      type: 'season',
+      message: `🌸 Season changed to ${SEASON_DISPLAY[newState.season].emoji} ${SEASON_DISPLAY[newState.season].name}!`,
+      turn: newState.turns,
+    });
   }
 
   newState.history.push({
@@ -554,6 +529,53 @@ export function sortInventory(
   return newState;
 }
 
+// Event Processing
+export function processEvents(state: GameState): GameState {
+  let newState = { ...state };
+
+  // Trigger daily events (15% chance)
+  if (Math.random() < 0.15 && newState.turns > 0) {
+    const dailyEvent = getRandomDailyEvent(newState.season);
+    if (dailyEvent) {
+      const newEvent: MarketEvent = {
+        ...dailyEvent,
+        remainingTurns: dailyEvent.duration,
+      };
+      newState.events.push(newEvent);
+      newState.history.push({
+        type: 'event',
+        message: `📢 ${newEvent.description}`,
+        turn: newState.turns,
+      });
+    }
+  }
+
+  // Trigger rare events (1% chance)
+  if (Math.random() < 0.01 && newState.turns > 0) {
+    const rareEvent = getRandomRareEvent(newState.season);
+    if (rareEvent) {
+      const newEvent: MarketEvent = {
+        ...rareEvent,
+        remainingTurns: rareEvent.duration,
+      };
+      newState.events.push(newEvent);
+      newState.history.push({
+        type: 'event',
+        message: `⚡ ${newEvent.description}`,
+        turn: newState.turns,
+      });
+    }
+  }
+
+  // Trigger event chains (2% chance)
+  const chainResult = triggerEventChain(newState);
+  if (chainResult) {
+    newState = chainResult;
+  }
+
+  return newState;
+}
+
 export function bundleInventoryForTravel(
   state: GameState
 ): Record<string, number> {
@@ -611,4 +633,25 @@ export function getLocationById(id: string): Location | undefined {
 
 export function getSeasonDisplay(season: Season): { name: string; emoji: string } {
   return SEASON_DISPLAY[season];
+}
+
+// Volatility Meter
+export function calculateMarketVolatility(events: MarketEvent[]): number {
+  const totalVolatility = events.reduce((sum, event) => {
+    if (event.affectedGood === 'all' || event.affectedGood === 'random') {
+      return sum + Math.abs(event.priceMultiplier - 1);
+    }
+    return sum;
+  }, 0);
+
+  // Normalize to 0-100 scale
+  return Math.min(100, Math.round((totalVolatility / 5) * 100));
+}
+
+export function getVolatilityLevel(events: MarketEvent[]): 'low' | 'medium' | 'high' {
+  const volatility = calculateMarketVolatility(events);
+
+  if (volatility < 20) return 'low';
+  if (volatility < 50) return 'medium';
+  return 'high';
 }
