@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, Globe, RotateCcw, Wallet, Users, Target, Menu, Settings, Star, Trophy } from 'lucide-react';
+import { Package, Globe, RotateCcw, Wallet, Users, Target, Menu, Settings, Star, Trophy, Save, ShoppingCart } from 'lucide-react';
 import { triggerClickHaptic, triggerSuccessHaptic, triggerErrorHaptic, triggerPurchaseHaptic, triggerTravelHaptic } from '@/lib/haptics';
 import { playSound } from '@/lib/sounds';
 import {
@@ -27,6 +27,9 @@ import { Sparkles, FloatingText } from '@/components/ui/ParticleEffects';
 import StartScreen from '@/components/StartScreen';
 import GameOverOverlay from '@/components/GameOverOverlay';
 import ProgressionPanel from '@/components/ProgressionPanel';
+import SaveLoadPanel from '@/components/SaveLoadPanel';
+import LeaderboardPanel from '@/components/LeaderboardPanel';
+import InventoryUpgradesPanel from '@/components/InventoryUpgradesPanel';
 import { GameMode, createGameModeState, checkWinCondition, checkLoseCondition, calculateScore, getModeEmoji, getModeDisplayName, GAME_MODES } from '@/lib/game-modes';
 import {
   createPlayerProgression,
@@ -37,6 +40,8 @@ import {
   LEVELS,
   PlayerProgression,
 } from '@/lib/progression';
+import { SaveData, saveGame, loadAutoSave, getSaveSlots } from '@/lib/save-system';
+import { LeaderboardEntry, saveLeaderboardEntry, updateStats } from '@/lib/leaderboards';
 import {
   MultiplayerState,
   createMultiplayerState,
@@ -72,6 +77,14 @@ export default function Home() {
   const [progression, setProgression] = useState<PlayerProgression>(createPlayerProgression());
   const [showProgressionPanel, setShowProgressionPanel] = useState(false);
   const [profitPerTrade, setProfitPerTrade] = useState(0);
+
+  // Phase 7 state
+  const [showSaveLoadPanel, setShowSaveLoadPanel] = useState(false);
+  const [showLeaderboardPanel, setShowLeaderboardPanel] = useState(false);
+  const [showInventoryUpgradesPanel, setShowInventoryUpgradesPanel] = useState(false);
+  const [playerName, setPlayerName] = useState('Trader');
+  const [inventoryUpgrade, setInventoryUpgrade] = useState<any | undefined>(undefined);
+  const [inventoryUpgradeLevel, setInventoryUpgradeLevel] = useState(0);
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -201,6 +214,9 @@ export default function Home() {
     }
 
     setProgression(newProgression);
+
+    // Auto-save
+    saveGame(gameState, newProgression);
   };
 
   const updateProgressionFromTravel = (distance: number) => {
@@ -345,6 +361,24 @@ export default function Home() {
     }
   };
 
+  // Phase 7 handlers
+  const handleLoadGame = (saveData: SaveData) => {
+    setGameState(saveData.gameState);
+    setProgression(saveData.progression);
+    showNotification('success', 'Game loaded successfully!');
+    setShowSaveLoadPanel(false);
+    playSound('click');
+    triggerClickHaptic();
+  };
+
+  const handlePurchaseUpgrade = (upgradeType: any, level: number) => {
+    // TODO: Implement inventory upgrade logic
+    showNotification('success', `Upgrade purchased! Level ${level}`);
+    setShowInventoryUpgradesPanel(false);
+    playSound('unlock');
+    triggerSuccessHaptic();
+  };
+
   const usedSlots = Object.values(gameState.inventory).reduce((sum, count) => sum + count, 0);
   const seasonDisplay = SEASON_DISPLAY[gameState.season];
   const currentLocation = getLocationById(gameState.currentLocation);
@@ -367,6 +401,26 @@ export default function Home() {
         score,
         turnsRemaining,
       });
+
+      // Save to leaderboard
+      const leaderboardEntry: LeaderboardEntry = {
+        id: `${Date.now()}-${Math.random()}`,
+        playerName,
+        gameMode: gameMode || 'sandbox',
+        score,
+        gold: gameState.money,
+        turns: gameState.turns,
+        achievements: progression.achievementsUnlocked.length,
+        level: progression.level,
+        timestamp: Date.now(),
+        date: new Date().toISOString(),
+      };
+
+      saveLeaderboardEntry(leaderboardEntry);
+      updateStats(leaderboardEntry);
+
+      // Auto-save
+      saveGame(gameState, progression);
 
       if (isWin) {
         playSound('goalComplete');
@@ -485,6 +539,45 @@ export default function Home() {
               {progression.achievementsUnlocked.length}
             </span>
           )}
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            setShowSaveLoadPanel(true);
+            triggerClickHaptic();
+            playSound('click');
+          }}
+          className="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-lg transition-colors"
+          title="Save / Load"
+        >
+          <Save className="w-5 h-5" />
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            setShowLeaderboardPanel(true);
+            triggerClickHaptic();
+            playSound('click');
+          }}
+          className="bg-yellow-800 hover:bg-yellow-700 text-white p-2 rounded-lg transition-colors"
+          title="Leaderboards"
+        >
+          <Trophy className="w-5 h-5" />
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            setShowInventoryUpgradesPanel(true);
+            triggerClickHaptic();
+            playSound('click');
+          }}
+          className="bg-green-800 hover:bg-green-700 text-white p-2 rounded-lg transition-colors"
+          title="Inventory Upgrades"
+        >
+          <ShoppingCart className="w-5 h-5" />
         </motion.button>
       </div>
 
@@ -807,6 +900,43 @@ export default function Home() {
         progression={progression}
         maxTurns={gameModeState.config.maxTurns}
         profitPerTrade={profitPerTrade}
+      />
+
+      {/* Save/Load Panel */}
+      <SaveLoadPanel
+        isOpen={showSaveLoadPanel}
+        onClose={() => {
+          setShowSaveLoadPanel(false);
+          triggerClickHaptic();
+          playSound('click');
+        }}
+        onLoad={handleLoadGame}
+        currentMoney={gameState.money}
+        currentLevel={progression.level}
+      />
+
+      {/* Leaderboard Panel */}
+      <LeaderboardPanel
+        isOpen={showLeaderboardPanel}
+        onClose={() => {
+          setShowLeaderboardPanel(false);
+          triggerClickHaptic();
+          playSound('click');
+        }}
+      />
+
+      {/* Inventory Upgrades Panel */}
+      <InventoryUpgradesPanel
+        isOpen={showInventoryUpgradesPanel}
+        onClose={() => {
+          setShowInventoryUpgradesPanel(false);
+          triggerClickHaptic();
+          playSound('click');
+        }}
+        currentMoney={gameState.money}
+        currentUpgrade={inventoryUpgrade}
+        currentUpgradeLevel={inventoryUpgradeLevel}
+        onPurchase={handlePurchaseUpgrade}
       />
 
       {/* Celebration Effects */}

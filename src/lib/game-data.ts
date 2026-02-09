@@ -34,6 +34,8 @@ export interface Location {
   travelCost: number;
   unlocked: boolean;
   unlockCost?: number;
+  secret?: boolean; // Secret location discovered via events
+  unlockCondition?: string; // How to unlock secret locations
 }
 
 export interface MarketEvent {
@@ -365,6 +367,55 @@ export const LOCATIONS: Location[] = [
     travelCost: 55,
     unlocked: false,
     unlockCost: 600,
+  },
+
+  // SECRET LOCATIONS (discovered via rare events)
+  {
+    id: 'iceland-aurora',
+    name: 'Iceland Aurora',
+    emoji: '🌌',
+    goods: [
+      { goodId: 'diamonds', baseMultiplier: 0.5 },
+      { goodId: 'fish', baseMultiplier: 0.7 },
+      { goodId: 'rare-minerals', baseMultiplier: 0.6 },
+    ],
+    travelCost: 80,
+    unlocked: false,
+    unlockCost: 1500,
+    secret: true,
+    unlockCondition: 'Discover via rare event',
+  },
+  {
+    id: 'petra-lost-city',
+    name: 'Petra Lost City',
+    emoji: '🏛️',
+    goods: [
+      { goodId: 'gold', baseMultiplier: 0.4 },
+      { goodId: 'ivory', baseMultiplier: 0.5 },
+      { goodId: 'rubies', baseMultiplier: 0.6 },
+      { goodId: 'crown', baseMultiplier: 0.7 },
+    ],
+    travelCost: 85,
+    unlocked: false,
+    unlockCost: 2000,
+    secret: true,
+    unlockCondition: 'Discover via rare event',
+  },
+  {
+    id: 'machu-picchu',
+    name: 'Machu Picchu',
+    emoji: '🏔️',
+    goods: [
+      { goodId: 'emeralds', baseMultiplier: 0.5 },
+      { goodId: 'exotic-spices', baseMultiplier: 0.6 },
+      { goodId: 'dragonfruit', baseMultiplier: 0.7 },
+      { goodId: 'ancient-artifacts', baseMultiplier: 0.5 },
+    ],
+    travelCost: 90,
+    unlocked: false,
+    unlockCost: 2500,
+    secret: true,
+    unlockCondition: 'Discover via rare event',
   },
 ];
 
