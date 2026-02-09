@@ -26,7 +26,7 @@ export default function Travel({
         Travel
       </h2>
 
-      <div className="grid grid-cols-1 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         {[
           {
             id: 'istanbul',
@@ -57,11 +57,67 @@ export default function Travel({
             unlockCost: null,
           },
           {
+            id: 'newdelhi',
+            name: 'New Delhi',
+            emoji: '🕌',
+            cost: 55,
+            unlockCost: 600,
+          },
+          {
             id: 'beijing',
             name: 'Beijing',
             emoji: '🏯',
             cost: 50,
             unlockCost: 500,
+          },
+          {
+            id: 'singapore',
+            name: 'Singapore',
+            emoji: '🦁',
+            cost: 70,
+            unlockCost: 800,
+          },
+          {
+            id: 'hongkong',
+            name: 'Hong Kong',
+            emoji: '🏙️',
+            cost: 75,
+            unlockCost: 1500,
+          },
+          {
+            id: 'capetown',
+            name: 'Cape Town',
+            emoji: '🏔️',
+            cost: 80,
+            unlockCost: 1200,
+          },
+          {
+            id: 'rio',
+            name: 'Rio de Janeiro',
+            emoji: '🎭',
+            cost: 85,
+            unlockCost: 900,
+          },
+          {
+            id: 'sydney',
+            name: 'Sydney',
+            emoji: '🦘',
+            cost: 90,
+            unlockCost: 2000,
+          },
+          {
+            id: 'moscow',
+            name: 'Moscow',
+            emoji: '🏰',
+            cost: 95,
+            unlockCost: 1100,
+          },
+          {
+            id: 'reykjavik',
+            name: 'Reykjavik',
+            emoji: '🌋',
+            cost: 100,
+            unlockCost: 1300,
           },
           {
             id: 'newyork',

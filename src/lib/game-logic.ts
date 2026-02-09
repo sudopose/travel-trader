@@ -3,10 +3,16 @@ import {
   Good,
   Location,
   MarketEvent,
+  Weather,
+  Season,
   GOODS,
   LOCATIONS,
   MARKET_EVENTS,
+  WEATHER_TYPES,
   INITIAL_MONEY,
+  INITIAL_INVENTORY_SLOTS,
+  MAX_INVENTORY_SLOTS,
+  SEASON_DISPLAY,
 } from './game-data';
 
 export function getInitialGameState(): GameState {
@@ -17,6 +23,9 @@ export function getInitialGameState(): GameState {
     unlockedLocations: ['istanbul'],
     turns: 0,
     events: [],
+    season: Season.SPRING,
+    inventorySlots: INITIAL_INVENTORY_SLOTS,
+    maxInventorySlots: MAX_INVENTORY_SLOTS,
     history: [
       {
         type: 'event',
@@ -30,14 +39,42 @@ export function getInitialGameState(): GameState {
 export function calculatePrice(
   good: Good,
   location: Location,
-  events: MarketEvent[]
+  events: MarketEvent[],
+  season: Season,
+  weather?: Weather
 ): number {
   const locationGood = location.goods.find((g) => g.goodId === good.id);
   const multiplier = locationGood ? locationGood.baseMultiplier : 1;
 
+  // Seasonal modifier
+  let seasonalMultiplier = 1;
+  if (good.seasonalPreference === season) {
+    // Goods are cheaper in their preferred season (more supply)
+    seasonalMultiplier = 0.8;
+  } else if (
+    (good.seasonalPreference === Season.SPRING && season === Season.WINTER) ||
+    (good.seasonalPreference === Season.SUMMER && season === Season.SPRING) ||
+    (good.seasonalPreference === Season.AUTUMN && season === Season.SUMMER) ||
+    (good.seasonalPreference === Season.WINTER && season === Season.AUTUMN)
+  ) {
+    // Goods are more expensive in opposite season (less supply)
+    seasonalMultiplier = 1.2;
+  }
+
+  // Weather modifier
+  let weatherMultiplier = 1;
+  if (weather) {
+    weatherMultiplier = weather.priceModifier;
+  }
+
+  // Market events
   let eventMultiplier = 1;
   for (const event of events) {
-    if (event.affectedGood === 'all' || event.affectedGood === good.id || event.affectedGood === good.category) {
+    if (
+      event.affectedGood === 'all' ||
+      event.affectedGood === good.id ||
+      event.affectedGood === good.category
+    ) {
       eventMultiplier *= event.priceMultiplier;
     }
   }
@@ -45,7 +82,98 @@ export function calculatePrice(
   // Add some randomness
   const randomFactor = 1 + (Math.random() - 0.5) * good.volatility * 0.3;
 
-  return Math.round(good.basePrice * multiplier * eventMultiplier * randomFactor);
+  return Math.round(
+    good.basePrice *
+      multiplier *
+      seasonalMultiplier *
+      weatherMultiplier *
+      eventMultiplier *
+      randomFactor
+  );
+}
+
+export function calculateTravelCost(
+  locationId: string,
+  weather?: Weather
+): number {
+  const location = LOCATIONS.find((l) => l.id === locationId);
+  if (!location) return 0;
+
+  let cost = location.travelCost;
+
+  // Weather affects travel cost
+  if (weather) {
+    cost = Math.round(cost * weather.travelCostModifier);
+  }
+
+  return cost;
+}
+
+export function getCurrentInventoryCount(state: GameState): number {
+  return Object.values(state.inventory).reduce((sum, count) => sum + count, 0);
+}
+
+export function getUsedInventorySlots(state: GameState): number {
+  return Object.values(state.inventory).reduce((sum, count) => sum + count, 0);
+}
+
+export function addToInventory(
+  state: GameState,
+  goodId: string,
+  quantity: number
+): { canAdd: boolean; reason?: string } {
+  const currentCount = getUsedInventorySlots(state);
+  const newCount = currentCount + quantity;
+
+  if (newCount > state.inventorySlots) {
+    return {
+      canAdd: false,
+      reason: `Inventory full! Used: ${currentCount}/${state.inventorySlots}`,
+    };
+  }
+
+  return { canAdd: true };
+}
+
+export function removeFromInventory(
+  state: GameState,
+  goodId: string,
+  quantity: number
+): { canRemove: boolean; reason?: string } {
+  const currentCount = state.inventory[goodId] || 0;
+
+  if (currentCount < quantity) {
+    return {
+      canRemove: false,
+      reason: `Not enough ${goodId}! Have ${currentCount}, need ${quantity}`,
+    };
+  }
+
+  return { canRemove: true };
+}
+
+export function sortInventory(state: GameState): GameState {
+  const newState = { ...state };
+  const sortedEntries = Object.entries(newState.inventory).sort((a, b) => {
+    const goodA = GOODS.find((g) => g.id === a[0]);
+    const goodB = GOODS.find((g) => g.id === b[0]);
+
+    if (!goodA || !goodB) return 0;
+
+    // Sort by category first, then by name
+    if (goodA.category !== goodB.category) {
+      return goodA.category.localeCompare(goodB.category);
+    }
+    return goodA.name.localeCompare(goodB.name);
+  });
+
+  const newInventory: Record<string, number> = {};
+  sortedEntries.forEach(([key, value]) => {
+    newInventory[key] = value;
+  });
+
+  newState.inventory = newInventory;
+  return newState;
 }
 
 export function buyGood(
@@ -59,11 +187,19 @@ export function buyGood(
   const good = GOODS.find((g) => g.id === goodId);
   if (!good) return { error: 'Invalid good' };
 
-  const price = calculatePrice(good, location, state.events);
+  // Check inventory space
+  const inventoryCheck = addToInventory(state, goodId, quantity);
+  if (!inventoryCheck.canAdd) {
+    return { error: inventoryCheck.reason };
+  }
+
+  const price = calculatePrice(good, location, state.events, state.season, state.weather);
   const totalCost = price * quantity;
 
   if (totalCost > state.money) {
-    return { error: `Not enough money! You need ${totalCost}, have ${state.money}` };
+    return {
+      error: `Not enough money! You need ${totalCost}, have ${state.money}`,
+    };
   }
 
   const newState = { ...state };
@@ -89,16 +225,24 @@ export function sellGood(
   const good = GOODS.find((g) => g.id === goodId);
   if (!good) return { error: 'Invalid good' };
 
-  if ((state.inventory[goodId] || 0) < quantity) {
-    return { error: `Not enough ${good.name}! You have ${state.inventory[goodId] || 0}` };
+  // Check inventory
+  const inventoryCheck = removeFromInventory(state, goodId, quantity);
+  if (!inventoryCheck.canRemove) {
+    return { error: inventoryCheck.reason };
   }
 
-  const price = calculatePrice(good, location, state.events);
+  const price = calculatePrice(good, location, state.events, state.season, state.weather);
   const totalRevenue = price * quantity;
 
   const newState = { ...state };
   newState.money += totalRevenue;
   newState.inventory[goodId] = Math.max(0, newState.inventory[goodId]! - quantity);
+
+  // Clean up empty inventory slots
+  if (newState.inventory[goodId] === 0) {
+    delete newState.inventory[goodId];
+  }
+
   newState.history.push({
     type: 'sell',
     message: `Sold ${quantity} ${good.emoji} ${good.name} for ${totalRevenue}🪙`,
@@ -119,7 +263,7 @@ export function travelTo(state: GameState, locationId: string): GameState | { er
     return { error: 'Location not unlocked yet!' };
   }
 
-  const travelCost = targetLocation.travelCost;
+  const travelCost = calculateTravelCost(locationId, state.weather);
   if (travelCost > state.money) {
     return { error: `Not enough money to travel! Need ${travelCost}🪙` };
   }
@@ -129,12 +273,52 @@ export function travelTo(state: GameState, locationId: string): GameState | { er
   newState.currentLocation = locationId;
   newState.turns += 1;
 
+  // Update season every 4 turns
+  const seasonOrder = [Season.SPRING, Season.SUMMER, Season.AUTUMN, Season.WINTER];
+  const seasonIndex = seasonOrder.indexOf(newState.season);
+  if (newState.turns % 4 === 0) {
+    newState.season = seasonOrder[(seasonIndex + 1) % seasonOrder.length];
+    newState.history.push({
+      type: 'season',
+      message: `🌸 Season changed to ${SEASON_DISPLAY[newState.season].emoji} ${SEASON_DISPLAY[newState.season].name}!`,
+      turn: newState.turns,
+    });
+  }
+
+  // Process weather
+  if (newState.weather) {
+    newState.weather.remainingTurns -= 1;
+    if (newState.weather.remainingTurns <= 0) {
+      newState.weather = undefined;
+      newState.history.push({
+        type: 'weather',
+        message: '☀️ Weather has cleared.',
+        turn: newState.turns,
+      });
+    }
+  }
+
+  // Maybe trigger a new weather event (20% chance, but not if already has weather)
+  if (!newState.weather && Math.random() < 0.2 && newState.turns > 0) {
+    const newWeatherTemplate = WEATHER_TYPES[Math.floor(Math.random() * WEATHER_TYPES.length)];
+    const newWeather: Weather = {
+      ...newWeatherTemplate,
+      remainingTurns: newWeatherTemplate.duration,
+    };
+    newState.weather = newWeather;
+    newState.history.push({
+      type: 'weather',
+      message: `🌡️ ${newWeather.description}`,
+      turn: newState.turns,
+    });
+  }
+
   // Process events
   newState.events = newState.events
     .map((e) => ({ ...e, remainingTurns: e.remainingTurns - 1 }))
     .filter((e) => e.remainingTurns > 0);
 
-  // Maybe trigger a new event
+  // Maybe trigger a new market event (25% chance)
   if (Math.random() < 0.25 && newState.turns > 0) {
     const newEventTemplate = MARKET_EVENTS[Math.floor(Math.random() * MARKET_EVENTS.length)];
     const newEvent: MarketEvent = {
@@ -169,7 +353,9 @@ export function unlockLocation(
 
   if (!location.unlockCost) return { error: 'Cannot unlock this location' };
   if (location.unlockCost > state.money) {
-    return { error: `Need ${location.unlockCost}🪙 to unlock ${location.name}` };
+    return {
+      error: `Need ${location.unlockCost}🪙 to unlock ${location.name}`,
+    };
   }
 
   const newState = { ...state };
@@ -197,4 +383,8 @@ export function getGoodById(id: string): Good | undefined {
 
 export function getLocationById(id: string): Location | undefined {
   return LOCATIONS.find((l) => l.id === id);
+}
+
+export function getSeasonDisplay(season: Season): { name: string; emoji: string } {
+  return SEASON_DISPLAY[season];
 }

@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { ShoppingCart, TrendingUp, TrendingDown } from 'lucide-react';
-import { Good, Location, MarketEvent } from '@/lib/game-data';
+import { Good, Location, MarketEvent, Season, Weather } from '@/lib/game-data';
 import { getGoodById, calculatePrice } from '@/lib/game-logic';
 
 interface MarketProps {
@@ -11,9 +11,11 @@ interface MarketProps {
   onBuy: (goodId: string) => void;
   onSell: (goodId: string) => void;
   inventory: Record<string, number>;
+  season: Season;
+  weather?: Weather;
 }
 
-export default function Market({ location, events, onBuy, onSell, inventory }: MarketProps) {
+export default function Market({ location, events, onBuy, onSell, inventory, season, weather }: MarketProps) {
   return (
     <div className="space-y-3">
       <h2 className="text-lg font-bold text-blue-300 flex items-center gap-2">
@@ -26,7 +28,7 @@ export default function Market({ location, events, onBuy, onSell, inventory }: M
           const good = getGoodById(locationGood.goodId);
           if (!good) return null;
 
-          const price = calculatePrice(good, location, events);
+          const price = calculatePrice(good, location, events, season, weather);
           const owned = inventory[good.id] || 0;
 
           // Check if price is higher or lower than base

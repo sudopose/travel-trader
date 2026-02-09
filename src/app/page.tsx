@@ -15,6 +15,8 @@ import {
   travelTo,
   unlockLocation,
   getLocationById,
+  getCurrentInventoryCount,
+  getSeasonDisplay,
 } from '@/lib/game-logic';
 
 type Tab = 'market' | 'travel' | 'inventory' | 'history';
@@ -76,6 +78,9 @@ export default function Home() {
     }
   };
 
+  const totalItems = getCurrentInventoryCount(gameState);
+  const usedSlots = Object.values(gameState.inventory).reduce((sum, count) => sum + count, 0);
+  const seasonDisplay = getSeasonDisplay(gameState.season);
   const location = getLocationById(gameState.currentLocation)!;
 
   return (
@@ -87,8 +92,23 @@ export default function Home() {
           <span className="tracking-wide">Travel Trader</span>
         </h1>
 
+      {/* Season & Weather Indicator */}
+      <div className="flex justify-center items-center gap-6 mb-4">
+        <div className="flex items-center gap-2 bg-slate-800/80 px-4 py-2 rounded-xl">
+          <span className="text-2xl">{seasonDisplay.emoji}</span>
+          <span className="text-white font-semibold">{seasonDisplay.name}</span>
+        </div>
+
+        {gameState.weather && (
+          <div className="flex items-center gap-2 bg-yellow-900/80 px-4 py-2 rounded-xl">
+            <span className="text-2xl">{gameState.weather.emoji}</span>
+            <span className="text-white font-semibold">{gameState.weather.name}</span>
+          </div>
+        )}
+      </div>
+
       {/* Buttons */}
-      <div className="flex justify-center items-center gap-4 mb-8">
+      <div className="flex justify-center items-center gap-4 mb-6">
         <motion.button
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -120,6 +140,10 @@ export default function Home() {
         money={gameState.money}
         location={{ name: location.name, emoji: location.emoji }}
         turns={gameState.turns}
+        season={gameState.season}
+        weather={gameState.weather}
+        inventoryCount={totalItems}
+        inventorySlots={gameState.inventorySlots}
       />
 
       {/* Events */}
@@ -160,7 +184,7 @@ export default function Home() {
         {[
           { id: 'market' as Tab, label: 'Market', icon: '🛒' },
           { id: 'travel' as Tab, label: 'Travel', icon: '✈️' },
-          { id: 'inventory' as Tab, label: `Inventory (${totalItems})`, icon: '📦' },
+          { id: 'inventory' as Tab, label: `Inventory (${usedSlots}/${gameState.inventorySlots})`, icon: '📦' },
           { id: 'history' as Tab, label: 'History', icon: '📜' },
         ].map((tab) => (
             <motion.button
@@ -210,10 +234,24 @@ export default function Home() {
 
           {activeTab === 'inventory' && (
             <div className="space-y-3">
-              <h2 className="text-lg font-bold text-blue-300 flex items-center gap-2">
-                <Package size={20} className="mr-2" />
-                Your Inventory
-              </h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold text-blue-300 flex items-center gap-2">
+                  <Package size={20} className="mr-2" />
+                  Your Inventory
+                </h2>
+                <div className="text-sm text-slate-400">
+                  {usedSlots} / {gameState.inventorySlots} slots used
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-slate-800 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${(usedSlots / gameState.inventorySlots) * 100}%` }}
+                ></div>
+              </div>
+
               {Object.entries(gameState.inventory).length === 0 ? (
                 <div className="text-slate-500 text-center py-8">
                   Your inventory is empty. Visit the market to buy goods!
@@ -233,16 +271,17 @@ export default function Home() {
                         <div className="flex items-center gap-3">
                           <span className="text-2xl">
                             {(() => {
-                              const goods = ['🌾', '🍚', '🌶️', '🧵', '🪙', '🍵', '☁️', '🛁️', '🪨', '☕', '💎', '🦴', '🌿'];
-                              const idx = ['wheat', 'rice', 'spices', 'silk', 'gold', 'tea', 'cotton', 'coffee', 'diamonds', 'ivory'].indexOf(goodId);
+                              const goods = ['🌾', '🍚', '🍎', '🥕', '🍌', '🍇', '🌿', '🥬', '🌶️', '🧄', '🧅', '🌱', '🌲', '💜', '👑', '❤️', '💚', '☁️', '🪵', '🪨', '📜', '🍯', '🐪', '🗺️', '🐴', '🐉', '🌸'];
+                              const idx = ['wheat', 'rice', 'apples', 'carrots', 'bananas', 'grapes', 'herbs', 'leafy_greens', 'chili', 'garlic', 'onion', 'mint', 'pine', 'lavender', 'crowns', 'rubies', 'emeralds', 'cotton', 'wood', 'stone', 'papyrus', 'honey', 'caravans', 'maps', 'horses', 'dragonfruit', 'sakura'].indexOf(goodId);
                               return idx >= 0 ? goods[idx] : '📦';
                             })()}
                           </span>
-                          <div className="capitalize text-white text-sm md:text-base">{goodId}</div>
+                          <div className="capitalize text-white text-sm md:text-base">{goodId.replace('_', ' ')}</div>
                           <div className="bg-blue-600/30 px-3 py-1 rounded-full">
                             <span className="text-blue-300 font-bold">{count}</span>
                           </div>
                         </motion.div>
+                      </motion.div>
                     ))}
                 </div>
               )}
