@@ -68,13 +68,22 @@
 
 ---
 
-## Phase 5: Game Modes 📅
-- [ ] Career Mode
-- [ ] Speed Run Mode
-- [ ] Survival Mode
-- [ ] Puzzle Mode
+## Phase 5: Game Modes ✅
+**Status:** COMPLETE
+**Commits:** 0d49cb6, 63daf5e
+**Duration:** ~2.5 hours
 
-**Target:** ~2 hours
+- [x] Career Mode (40 seasons, 5000 gold goal)
+- [x] Speed Run Mode (50 turns, quick 5000 gold)
+- [x] Survival Mode (Start with 50 gold, 20 turns to reach 200)
+- [x] Puzzle Mode (Full inventory, 10 turns for max profit)
+- [x] Win/Lose Condition Checking
+- [x] Score Calculation System
+- [x] Start Screen Component
+- [x] Game Over Overlay Component
+- [x] Game Mode Selector Component
+
+**Total: 4 features**
 
 ---
 
