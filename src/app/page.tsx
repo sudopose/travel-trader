@@ -166,11 +166,15 @@ export default function Home() {
     const currentLevelData = LEVELS.find(l => l.level === progression.level);
     const newLevelData = LEVELS.find(l => l.level === newLevel);
 
+    // Calculate XP to next level correctly (XP earned in current level)
+    const xpInCurrentLevel = newXP - (currentLevelData?.xpRequired || 0);
+    const xpToNextLevel = newLevelData ? newLevelData.xpRequired - newXP : 0;
+
     const newProgression: PlayerProgression = {
       ...progression,
       xp: newXP,
       level: newLevel,
-      xpToNext: newLevelData ? newLevelData.xpRequired - newXP : 0,
+      xpToNext: xpToNextLevel,
       totalTrades: progression.totalTrades + 1,
       goldEarned: progression.goldEarned + profit,
     };

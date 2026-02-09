@@ -21,7 +21,7 @@ export function getInitialGameState(): GameState {
     money: INITIAL_MONEY,
     inventory: {},
     currentLocation: 'istanbul',
-    unlockedLocations: ['istanbul'],
+    unlockedLocations: ['istanbul', 'mumbai', 'cairo', 'venice'],
     turns: 0,
     events: [],
     season: Season.SPRING,
