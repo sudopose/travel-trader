@@ -154,7 +154,7 @@ export function removeFromInventory(
   return { canRemove: true };
 }
 
-export function sortInventory(state: GameState): GameState {
+export function sortInventoryBasic(state: GameState): GameState {
   const newState = { ...state };
   const sortedEntries = Object.entries(newState.inventory).sort((a, b) => {
     const goodA = GOODS.find((g) => g.id === a[0]);
@@ -270,7 +270,7 @@ export function travelTo(state: GameState, locationId: string): GameState | { er
     return { error: `Not enough money to travel! Need ${travelCost}🪙` };
   }
 
-  const newState = { ...state };
+  let newState = { ...state };
   newState.money -= travelCost;
   newState.currentLocation = locationId;
   newState.turns += 1;
@@ -324,9 +324,8 @@ export function travelTo(state: GameState, locationId: string): GameState | { er
   newState = processEvents(newState);
 
   // Update season every 4 turns
-  const seasonOrder = [Season.SPRING, Season.SUMMER, Season.AUTUMN, Season.WINTER];
-  const seasonIndex = seasonOrder.indexOf(newState.season);
   if (newState.turns % 4 === 0) {
+    const seasonIndex = seasonOrder.indexOf(newState.season);
     newState.season = seasonOrder[(seasonIndex + 1) % seasonOrder.length];
     newState.history.push({
       type: 'season',
@@ -636,19 +635,6 @@ export function getSeasonDisplay(season: Season): { name: string; emoji: string 
 }
 
 // Volatility Meter
-export function calculateMarketVolatility(events: MarketEvent[]): number {
-  const totalVolatility = events.reduce((sum, event) => {
-    if (event.affectedGood === 'all' || event.affectedGood === 'random') {
-      return sum + Math.abs(event.priceMultiplier - 1);
-    }
-    return sum;
-  }, 0);
-
-  // Normalize to 0-100 scale
-  return Math.min(100, Math.round((totalVolatility / 5) * 100));
-}
-
-export function getVolatilityLevel(events: MarketEvent[]): 'low' | 'medium' | 'high' {
   const volatility = calculateMarketVolatility(events);
 
   if (volatility < 20) return 'low';

@@ -1,23 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Package, Globe, X, RotateCcw } from 'lucide-react';
-import GameBoard from '@/components/GameBoard';
-import Market from '@/components/Market';
-import Travel from '@/components/Travel';
-import Events from '@/components/Events';
-import History from '@/components/History';
+import { Package, Globe, RotateCcw, Wallet } from 'lucide-react';
 import {
   getInitialGameState,
+  processEvents,
   buyGood,
   sellGood,
   travelTo,
   unlockLocation,
   getLocationById,
-  getCurrentInventoryCount,
-  getSeasonDisplay,
 } from '@/lib/game-logic';
+import { SEASON_DISPLAY } from '@/lib/game-data';
+import Market from '@/components/Market';
+import Travel from '@/components/Travel';
+import Inventory from '@/components/Inventory';
+import History from '@/components/History';
 
 type Tab = 'market' | 'travel' | 'inventory' | 'history';
 
@@ -33,8 +32,8 @@ export default function Home() {
 
   const handleBuy = (goodId: string) => {
     const result = buyGood(gameState, goodId, 1);
-    if ('error' in result) {
-      showNotification('error', result.error);
+    if (typeof result === 'string' || 'error' in result) {
+      showNotification('error', typeof result === 'string' ? result : result.error);
     } else {
       setGameState(result);
       showNotification('success', 'Purchased!');
@@ -43,8 +42,8 @@ export default function Home() {
 
   const handleSell = (goodId: string) => {
     const result = sellGood(gameState, goodId, 1);
-    if ('error' in result) {
-      showNotification('error', result.error);
+    if (typeof result === 'string' || 'error' in result) {
+      showNotification('error', typeof result === 'string' ? result : result.error);
     } else {
       setGameState(result);
       showNotification('success', 'Sold!');
@@ -53,21 +52,21 @@ export default function Home() {
 
   const handleTravel = (locationId: string) => {
     const result = travelTo(gameState, locationId);
-    if ('error' in result) {
-      showNotification('error', result.error);
+    if (typeof result === 'string' || 'error' in result) {
+      showNotification('error', typeof result === 'string' ? result : result.error);
     } else {
       setGameState(result);
-      showNotification('success', `Traveled to ${getLocationById(locationId)?.name}!`);
+      showNotification('success', 'Traveled!');
     }
   };
 
   const handleUnlock = (locationId: string) => {
     const result = unlockLocation(gameState, locationId);
-    if ('error' in result) {
-      showNotification('error', result.error);
+    if (typeof result === 'string' || 'error' in result) {
+      showNotification('error', typeof result === 'string' ? result : result.error);
     } else {
       setGameState(result);
-      showNotification('success', `Unlocked ${getLocationById(locationId)?.name}!`);
+      showNotification('success', 'Unlocked!');
     }
   };
 
@@ -78,10 +77,12 @@ export default function Home() {
     }
   };
 
-  const totalItems = getCurrentInventoryCount(gameState);
   const usedSlots = Object.values(gameState.inventory).reduce((sum, count) => sum + count, 0);
-  const seasonDisplay = getSeasonDisplay(gameState.season);
-  const location = getLocationById(gameState.currentLocation)!;
+  const seasonDisplay = SEASON_DISPLAY[gameState.season];
+  const currentLocation = getLocationById(gameState.currentLocation);
+
+  // Process events for display (not mutating state)
+  const processedState = processEvents(gameState);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 via-blue-950 to-slate-950 p-4 md:p-8">
@@ -91,6 +92,7 @@ export default function Home() {
           <Globe className="text-blue-400" />
           <span className="tracking-wide">Travel Trader</span>
         </h1>
+      </div>
 
       {/* Season & Weather Indicator */}
       <div className="flex justify-center items-center gap-6 mb-4">
@@ -99,10 +101,10 @@ export default function Home() {
           <span className="text-white font-semibold">{seasonDisplay.name}</span>
         </div>
 
-        {gameState.weather && (
+        {processedState.weather && (
           <div className="flex items-center gap-2 bg-yellow-900/80 px-4 py-2 rounded-xl">
-            <span className="text-2xl">{gameState.weather.emoji}</span>
-            <span className="text-white font-semibold">{gameState.weather.name}</span>
+            <span className="text-2xl">{processedState.weather.emoji}</span>
+            <span className="text-white font-semibold">{processedState.weather.name}</span>
           </div>
         )}
       </div>
@@ -117,62 +119,67 @@ export default function Home() {
           onClick={handleReset}
           className="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-lg transition-colors"
           title="New Game"
-          >
-            <RotateCcw size={20} />
-          </motion.button>
-
-        {/* Link to Guide */}
-        <motion.button
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => window.location.href = '/how-to-play'}
-          className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors"
-          >
-            <Package size={20} className="mr-2" />
-            <span className="font-semibold">How to Play</span>
-          </motion.button>
+        >
+          <RotateCcw className="w-5 h-5" />
+        </motion.button>
       </div>
 
-      {/* Game Board */}
-      <GameBoard
-        money={gameState.money}
-        location={{ name: location.name, emoji: location.emoji }}
-        turns={gameState.turns}
-        season={gameState.season}
-        weather={gameState.weather}
-        inventoryCount={totalItems}
-        inventorySlots={gameState.inventorySlots}
-      />
+      {/* Money Display */}
+      <div className="flex justify-center items-center gap-4 mb-6">
+        <div className="flex items-center gap-2 bg-gradient-to-r from-yellow-900/80 to-amber-900/80 px-6 py-3 rounded-xl border border-yellow-700/50">
+          <Wallet className="text-yellow-400" size={20} />
+          <span className="text-white font-bold text-xl">{gameState.money}</span>
+          <span className="text-yellow-400">🪙</span>
+        </div>
+      </div>
 
-      {/* Events */}
-      <Events events={gameState.events} />
-
-      {/* Notification */}
-      <AnimatePresence>
-        {notification && (
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 20, opacity: 0 }}
-            className={`fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 rounded-xl p-4 border ${
-                notification.type === 'error'
-                  ? 'bg-red-900/90 border-red-500'
-                  : 'bg-green-900/90 border-green-500'
-              }`}
-          >
-            <div className="flex items-start gap-2">
-              {notification.type === 'error' ? (
-                  <X className="text-red-400 mt-0.5" size={16} />
-                ) : (
-                  <Package className="text-green-400 mt-0.5" size={16} />
-                )}
-              <p className="text-sm text-white mt-0.5">{notification.message}</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Active Events */}
+      {(gameState.events.length > 0 || gameState.weather) && (
+        <div className="bg-slate-900/50 rounded-2xl p-4 mb-6 border border-slate-700">
+          <h2 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+            <span>📢</span> Active Events
+          </h2>
+          <div className="space-y-2">
+            {gameState.events.map((event) => (
+              <motion.div
+                key={event.id}
+                initial={{ x: -10, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ duration: 0.2 }}
+                className="bg-slate-800/50 rounded-lg p-3 border border-slate-600"
+              >
+                <div className="flex items-start gap-2">
+                  <span className="text-2xl">{event.description.charAt(0)}</span>
+                  <div>
+                    <p className="text-white text-sm font-medium">{event.description}</p>
+                    <p className="text-slate-400 text-xs mt-1">
+                      Ends in {event.remainingTurns} turn{event.remainingTurns !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+            {gameState.weather && (
+              <motion.div
+                initial={{ x: -10, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ duration: 0.2 }}
+                className="bg-yellow-900/30 rounded-lg p-3 border border-yellow-700/50"
+              >
+                <div className="flex items-start gap-2">
+                  <span className="text-2xl">{gameState.weather.emoji}</span>
+                  <div>
+                    <p className="text-white text-sm font-medium">{gameState.weather.description}</p>
+                    <p className="text-slate-400 text-xs mt-1">
+                      Ends in {gameState.weather.remainingTurns} turn{gameState.weather.remainingTurns !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tab Navigation */}
       <motion.div
@@ -187,22 +194,22 @@ export default function Home() {
           { id: 'inventory' as Tab, label: `Inventory (${usedSlots}/${gameState.inventorySlots})`, icon: '📦' },
           { id: 'history' as Tab, label: 'History', icon: '📜' },
         ].map((tab) => (
-            <motion.button
-              key={tab.id}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <span>{tab.icon}</span>
-              <span className="font-semibold text-sm md:text-base">{tab.label}</span>
-            </motion.button>
-          ))}
-        </motion.div>
+          <motion.button
+            key={tab.id}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
+              activeTab === tab.id
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            <span>{tab.icon}</span>
+            <span className="font-semibold text-sm md:text-base">{tab.label}</span>
+          </motion.button>
+        ))}
+      </motion.div>
 
       {/* Tab Content */}
       <motion.div
@@ -212,88 +219,48 @@ export default function Home() {
         transition={{ duration: 0.2 }}
         className="bg-slate-900/50 rounded-2xl p-4 md:p-6 border border-slate-800"
       >
-          {activeTab === 'market' && (
-            <Market
-              location={location}
-              events={gameState.events}
-              onBuy={handleBuy}
-              onSell={handleSell}
-              inventory={gameState.inventory}
-            />
-          )}
+        {activeTab === 'market' && currentLocation && (
+          <Market
+            location={currentLocation}
+            events={gameState.events}
+            onBuy={handleBuy}
+            onSell={handleSell}
+            inventory={gameState.inventory}
+            season={gameState.season}
+            weather={gameState.weather}
+          />
+        )}
 
-          {activeTab === 'travel' && (
-            <Travel
-              currentLocation={gameState.currentLocation}
-              unlockedLocations={gameState.unlockedLocations}
-              onTravel={handleTravel}
-              onUnlock={handleUnlock}
-              money={gameState.money}
-            />
-          )}
+        {activeTab === 'travel' && (
+          <Travel
+            currentLocation={gameState.currentLocation}
+            unlockedLocations={gameState.unlockedLocations}
+            onTravel={handleTravel}
+            onUnlock={handleUnlock}
+            money={gameState.money}
+            weather={gameState.weather}
+          />
+        )}
 
-          {activeTab === 'inventory' && (
-            <div className="space-y-3">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold text-blue-300 flex items-center gap-2">
-                  <Package size={20} className="mr-2" />
-                  Your Inventory
-                </h2>
-                <div className="text-sm text-slate-400">
-                  {usedSlots} / {gameState.inventorySlots} slots used
-                </div>
-              </div>
+        {activeTab === 'inventory' && (
+          <Inventory
+            gameState={gameState}
+            season={gameState.season}
+            weather={gameState.weather}
+          />
+        )}
 
-              {/* Progress Bar */}
-              <div className="w-full bg-slate-800 rounded-full h-2">
-                <div
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${(usedSlots / gameState.inventorySlots) * 100}%` }}
-                ></div>
-              </div>
-
-              {Object.entries(gameState.inventory).length === 0 ? (
-                <div className="text-slate-500 text-center py-8">
-                  Your inventory is empty. Visit the market to buy goods!
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {Object.entries(gameState.inventory)
-                    .filter(([_, count]) => count > 0)
-                    .map(([goodId, count], index) => (
-                      <motion.div
-                        key={goodId}
-                        initial={{ x: -10, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        transition={{ delay: index * 0.05 }}
-                        className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 rounded-xl p-3 border border-slate-700/50 flex justify-between items-center"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">
-                            {(() => {
-                              const goods = ['🌾', '🍚', '🍎', '🥕', '🍌', '🍇', '🌿', '🥬', '🌶️', '🧄', '🧅', '🌱', '🌲', '💜', '👑', '❤️', '💚', '☁️', '🪵', '🪨', '📜', '🍯', '🐪', '🗺️', '🐴', '🐉', '🌸'];
-                              const idx = ['wheat', 'rice', 'apples', 'carrots', 'bananas', 'grapes', 'herbs', 'leafy_greens', 'chili', 'garlic', 'onion', 'mint', 'pine', 'lavender', 'crowns', 'rubies', 'emeralds', 'cotton', 'wood', 'stone', 'papyrus', 'honey', 'caravans', 'maps', 'horses', 'dragonfruit', 'sakura'].indexOf(goodId);
-                              return idx >= 0 ? goods[idx] : '📦';
-                            })()}
-                          </span>
-                          <div className="capitalize text-white text-sm md:text-base">{goodId.replace('_', ' ')}</div>
-                          <div className="bg-blue-600/30 px-3 py-1 rounded-full">
-                            <span className="text-blue-300 font-bold">{count}</span>
-                          </div>
-                        </motion.div>
-                      </motion.div>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'history' && <History history={gameState.history} />}
-        </motion.div>
+        {activeTab === 'history' && (
+          <History
+            history={gameState.history}
+          />
+        )}
+      </motion.div>
 
       {/* Footer */}
       <div className="text-center text-slate-500 text-xs py-4">
-        <p>💡 Tip: Discuss strategies together! Buy low, sell high, and watch for market events!</p>
+        <p>Turn: {gameState.turns} | Inventory: {usedSlots}/{gameState.inventorySlots} slots</p>
+        <p className="mt-1">💡 Phase 2 Complete - Advanced Features Ready!</p>
       </div>
     </main>
   );
