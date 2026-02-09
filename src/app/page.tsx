@@ -24,6 +24,7 @@ import SplitScreenLayout from '@/components/SplitScreenLayout';
 import TeamGoalsPanel from '@/components/TeamGoalsPanel';
 import SettingsPanel from '@/components/SettingsPanel';
 import { Sparkles, FloatingText } from '@/components/ui/ParticleEffects';
+import { GameMode, createGameModeState, checkWinCondition, checkLoseCondition, calculateScore, GAME_MODES } from '@/lib/game-modes';
 import {
   MultiplayerState,
   createMultiplayerState,
